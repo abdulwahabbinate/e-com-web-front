@@ -1,0 +1,238 @@
+.premium-order-success-page {
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+.premium-order-success-card {
+  max-width: 920px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 32px;
+  padding: 42px 34px;
+  text-align: center;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.08);
+}
+
+.premium-order-success-icon {
+  width: 92px;
+  height: 92px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
+}
+
+.premium-order-success-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.premium-order-success-title {
+  margin: 0 0 14px;
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -1px;
+  color: #111827;
+}
+
+.premium-order-success-subtitle {
+  max-width: 700px;
+  margin: 0 auto 28px;
+  color: #6b7280;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.premium-order-success-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.premium-order-info-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  padding: 18px;
+  text-align: center;
+}
+
+.premium-order-info-card span {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+
+.premium-order-info-card strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.premium-order-timeline {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.premium-order-step {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 16px 12px;
+}
+
+.premium-order-step.active {
+  background: #111827;
+  border-color: #111827;
+}
+
+.premium-order-step-dot {
+  width: 12px;
+  height: 12px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: #d1d5db;
+}
+
+.premium-order-step.active .premium-order-step-dot {
+  background: #ffffff;
+}
+
+.premium-order-step span {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.premium-order-step.active span {
+  color: #ffffff;
+}
+
+.premium-order-success-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  text-align: left;
+  background: #f9fafb;
+  border-radius: 18px;
+  padding: 16px 18px;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.7;
+  margin-bottom: 26px;
+}
+
+.premium-order-success-note i {
+  color: #111827;
+  margin-top: 3px;
+}
+
+.premium-order-success-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.premium-order-primary-btn,
+.premium-order-secondary-btn {
+  min-height: 50px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-decoration: none;
+  transition: all 0.22s ease;
+}
+
+.premium-order-primary-btn {
+  background: #111827;
+  color: #ffffff;
+  border: 1px solid #111827;
+}
+
+.premium-order-primary-btn:hover {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.premium-order-secondary-btn {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #d1d5db;
+}
+
+.premium-order-secondary-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+@media (max-width: 991.98px) {
+  .premium-order-success-info-grid,
+  .premium-order-timeline {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .premium-order-success-card {
+    padding: 28px 20px;
+    border-radius: 24px;
+  }
+
+  .premium-order-success-title {
+    font-size: 1.9rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .premium-order-success-info-grid,
+  .premium-order-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .premium-order-success-title {
+    font-size: 1.55rem;
+  }
+
+  .premium-order-success-actions {
+    flex-direction: column;
+  }
+
+  .premium-order-primary-btn,
+  .premium-order-secondary-btn {
+    width: 100%;
+  }
+}

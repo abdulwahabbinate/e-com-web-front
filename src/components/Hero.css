@@ -1,0 +1,142 @@
+.premium-hero {
+  padding: 28px 0 10px;
+  background: #ffffff;
+}
+
+.premium-hero-card {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+  align-items: center;
+  background: linear-gradient(135deg, #111827, #1f2937);
+  border-radius: 30px;
+  padding: 34px;
+  overflow: hidden;
+  min-height: 480px;
+}
+
+.premium-hero-content {
+  color: #ffffff;
+}
+
+.premium-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 18px;
+}
+
+.premium-hero-content h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin: 0 0 16px;
+}
+
+.premium-hero-content p {
+  font-size: 15px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.82);
+  max-width: 560px;
+  margin-bottom: 26px;
+}
+
+.premium-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.22s ease;
+}
+
+.premium-hero-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.premium-hero-dots {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.premium-hero-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.premium-hero-dot.active {
+  background: #ffffff;
+}
+
+.premium-hero-image-wrap {
+  height: 100%;
+  min-height: 360px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.premium-hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (max-width: 991.98px) {
+  .premium-hero-card {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .premium-hero-content h1 {
+    font-size: 2.3rem;
+  }
+
+  .premium-hero-image-wrap {
+    min-height: 280px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .premium-hero {
+    padding-top: 18px;
+  }
+
+  .premium-hero-card {
+    padding: 22px;
+    border-radius: 24px;
+  }
+
+  .premium-hero-content h1 {
+    font-size: 1.85rem;
+  }
+
+  .premium-hero-content p {
+    font-size: 14px;
+  }
+
+  .premium-hero-image-wrap {
+    min-height: 220px;
+  }
+}
