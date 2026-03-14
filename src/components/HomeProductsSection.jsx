@@ -7,6 +7,7 @@ import { addCart, addWishlist, delWishlist } from "../redux/action";
 import { API_ENDPOINTS } from "../config/api";
 import { normalizeProduct } from "../utils/productMapper";
 import ProductCard from "./ProductCard";
+import QuickViewModal from "./QuickViewModal";
 
 const HomeProductsSection = ({
   title = "Latest Products",
@@ -20,6 +21,7 @@ const HomeProductsSection = ({
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [quickViewProduct, setQuickViewProduct] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -116,12 +118,21 @@ const HomeProductsSection = ({
                     onAddToCart={addProduct}
                     onToggleWishlist={toggleWishlist}
                     isWishlisted={isInWishlist(product)}
-                    onQuickView={() => {}}
+                    onQuickView={setQuickViewProduct}
                   />
                 </div>
               ))}
         </div>
       </div>
+
+      <QuickViewModal
+        product={quickViewProduct}
+        isOpen={Boolean(quickViewProduct)}
+        onClose={() => setQuickViewProduct(null)}
+        onAddToCart={addProduct}
+        onToggleWishlist={toggleWishlist}
+        isWishlisted={quickViewProduct ? isInWishlist(quickViewProduct) : false}
+      />
     </section>
   );
 };

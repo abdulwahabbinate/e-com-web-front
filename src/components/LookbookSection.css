@@ -1,0 +1,120 @@
+.lookbook-section {
+  padding: 24px 0 10px;
+  background: #ffffff;
+}
+
+.lookbook-header {
+  margin-bottom: 28px;
+}
+
+.lookbook-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.lookbook-title {
+  margin: 0 0 10px;
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.8px;
+  color: #111827;
+}
+
+.lookbook-subtitle {
+  max-width: 620px;
+  margin: 0 auto;
+  color: #6b7280;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.lookbook-card {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  min-height: 340px;
+  background: #f3f4f6;
+}
+
+.lookbook-image {
+  width: 100%;
+  height: 100%;
+  min-height: 340px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+.lookbook-card:hover .lookbook-image {
+  transform: scale(1.05);
+}
+
+.lookbook-overlay {
+  position: absolute;
+  inset: auto 16px 16px 16px;
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(6px);
+  border-radius: 18px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lookbook-overlay span {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.lookbook-overlay a {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lookbook-overlay a:hover {
+  color: #111827;
+  background: #f3f4f6;
+}
+
+@media (max-width: 575.98px) {
+  .lookbook-title {
+    font-size: 1.6rem;
+  }
+
+  .lookbook-card,
+  .lookbook-image {
+    min-height: 280px;
+  }
+
+  .lookbook-overlay {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lookbook-overlay a {
+    width: 100%;
+  }
+}

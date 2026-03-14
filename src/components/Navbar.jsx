@@ -4,13 +4,6 @@ import { useSelector } from "react-redux";
 import "./Navbar.css";
 import { API_ENDPOINTS } from "../config/api";
 
-const quickSuggestions = [
-  "Premium T-Shirts",
-  "Jeans",
-  "Sports Caps",
-  "Winter Shirts",
-];
-
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,6 +14,7 @@ const Navbar = () => {
   const megaWrapperRef = useRef(null);
   const closeTimeoutRef = useRef(null);
   const openTimeoutRef = useRef(null);
+  const searchDebounceRef = useRef(null);
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileProductsOpen, setMobileProductsOpen] = useState(false);
@@ -36,6 +30,9 @@ const Navbar = () => {
   const [productMenu, setProductMenu] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
 
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [productSuggestions, setProductSuggestions] = useState([]);
+
   const cartCount = useMemo(() => {
     return cartItems.reduce((total, item) => total + (item.qty || 1), 0);
   }, [cartItems]);
@@ -49,12 +46,48 @@ const Navbar = () => {
 
   const wishlistCount = useMemo(() => wishlistItems.length, [wishlistItems]);
 
-  const filteredSuggestions = useMemo(() => {
-    if (!searchTerm.trim()) return quickSuggestions;
-    return quickSuggestions.filter((item) =>
-      item.toLowerCase().includes(searchTerm.toLowerCase())
+  const categorySuggestions = useMemo(() => {
+    const allCategories = (productMenu || []).flatMap((section) =>
+      (section?.children || []).flatMap((sub) =>
+        (sub?.children || []).map((leaf) => ({
+          id: leaf.id,
+          title: leaf.title,
+          slug: leaf.slug,
+          type: "category",
+        }))
+      )
     );
-  }, [searchTerm]);
+
+    if (!searchTerm.trim()) {
+      return allCategories.slice(0, 6);
+    }
+
+    return allCategories
+      .filter((item) =>
+        String(item.title || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
+      )
+      .slice(0, 6);
+  }, [productMenu, searchTerm]);
+
+  const combinedSuggestions = useMemo(() => {
+    const productItems = productSuggestions.map((item) => ({
+      id: item.id,
+      title: item.title,
+      type: "product",
+      category: item.category || "",
+    }));
+
+    const categoryItems = categorySuggestions.map((item) => ({
+      id: item.id,
+      title: item.title,
+      slug: item.slug,
+      type: "category",
+    }));
+
+    return [...productItems, ...categoryItems].slice(0, 8);
+  }, [productSuggestions, categorySuggestions]);
 
   useEffect(() => {
     let isMounted = true;
@@ -107,6 +140,64 @@ const Navbar = () => {
       document.body.style.overflow = "auto";
     };
   }, [miniCartOpen]);
+
+  useEffect(() => {
+    const term = searchTerm.trim();
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    if (!term) {
+      setProductSuggestions([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        setSearchLoading(true);
+
+        const params = new URLSearchParams();
+        params.set("search", term);
+        params.set("limit", "6");
+        params.set("page", "1");
+        params.set("sort_by", "featured");
+
+        const response = await fetch(`${API_ENDPOINTS.products}?${params.toString()}`);
+        const result = await response.json();
+
+        if (!response.ok || result?.status !== 1) {
+          throw new Error(result?.message || "Failed to fetch search suggestions");
+        }
+
+        const items = Array.isArray(result?.data?.items) ? result.data.items : [];
+
+        const mappedItems = items.map((item) => ({
+          id: item?._id || item?.id,
+          title: item?.name || item?.title || "",
+          category:
+            item?.category_id?.name ||
+            item?.category?.name ||
+            item?.category_name ||
+            "",
+        }));
+
+        setProductSuggestions(mappedItems.filter((item) => item.title));
+      } catch (error) {
+        console.log("Navbar search fetch error:", error.message);
+        setProductSuggestions([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchTerm]);
 
   const clearHoverTimers = () => {
     if (openTimeoutRef.current) {
@@ -206,6 +297,7 @@ const Navbar = () => {
       if (event.key === "Escape") {
         closeMegaMenuImmediately();
         setMiniCartOpen(false);
+        setSearchFocused(false);
       }
     };
 
@@ -235,16 +327,22 @@ const Navbar = () => {
   };
 
   const handleCategoryClick = (item) => {
-    navigate(buildProductSearchUrl({ search: searchTerm, slug: item.slug }));
+    navigate(buildProductSearchUrl({ search: "", slug: item.slug }));
     setMobileNavOpen(false);
     setMobileProductsOpen(false);
     setMegaMenuOpen(false);
+    setSearchFocused(false);
   };
 
-  const handleSuggestionClick = (value) => {
-    setSearchTerm(value);
+  const handleSuggestionClick = (item) => {
+    if (item.type === "category") {
+      navigate(buildProductSearchUrl({ search: "", slug: item.slug }));
+    } else {
+      navigate(buildProductSearchUrl({ search: item.title }));
+    }
+
+    setSearchTerm(item.title || "");
     setSearchFocused(false);
-    navigate(buildProductSearchUrl({ search: value }));
     setMobileNavOpen(false);
   };
 
@@ -549,6 +647,7 @@ const Navbar = () => {
                       className="premium-search-clear"
                       onClick={() => {
                         setSearchTerm("");
+                        setProductSuggestions([]);
                         navigate("/product");
                       }}
                       aria-label="Clear search"
@@ -561,17 +660,27 @@ const Navbar = () => {
                 {searchFocused && (
                   <div className="premium-search-dropdown">
                     <div className="premium-search-dropdown-header">Quick Search</div>
+
                     <div className="premium-search-suggestions">
-                      {filteredSuggestions.length > 0 ? (
-                        filteredSuggestions.map((item) => (
+                      {searchLoading ? (
+                        <div className="premium-no-results">Searching...</div>
+                      ) : combinedSuggestions.length > 0 ? (
+                        combinedSuggestions.map((item) => (
                           <button
-                            key={item}
+                            key={`${item.type}-${item.id}`}
                             type="button"
                             className="premium-search-suggestion"
                             onClick={() => handleSuggestionClick(item)}
                           >
-                            <i className="fa fa-search"></i>
-                            <span>{item}</span>
+                            <i
+                              className={`fa ${
+                                item.type === "category" ? "fa-tag" : "fa-search"
+                              }`}
+                            ></i>
+                            <span>
+                              {item.title}
+                              {item.type === "category" ? " (Category)" : ""}
+                            </span>
                           </button>
                         ))
                       ) : (

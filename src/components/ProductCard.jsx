@@ -24,36 +24,57 @@ const ProductCard = ({
   }, [product]);
 
   const sizes = useMemo(() => {
-    if (Array.isArray(product.sizes) && product.sizes.length > 0) {
-      return product.sizes;
-    }
-    return ["S", "M", "L"];
+    if (!Array.isArray(product.sizes)) return [];
+
+    return product.sizes
+      .map((size) => String(size || "").trim())
+      .filter(Boolean);
   }, [product]);
 
   const salePrice = Number(product.price || 0);
 
   const originalPrice = useMemo(() => {
-    if (product.originalPrice) return Number(product.originalPrice).toFixed(2);
-    return (salePrice * 1.2).toFixed(2);
+    if (product.originalPrice && Number(product.originalPrice) > salePrice) {
+      return Number(product.originalPrice);
+    }
+
+    return null;
   }, [product, salePrice]);
 
   const discountPercent = useMemo(() => {
-    if (product.discountPercent) return product.discountPercent;
+    if (product.discountPercent && Number(product.discountPercent) > 0) {
+      return Number(product.discountPercent);
+    }
 
-    const original = Number(originalPrice || 0);
-    if (!original || original <= salePrice) return 20;
-    return Math.round(((original - salePrice) / original) * 100);
+    if (originalPrice && originalPrice > salePrice) {
+      return Math.round(((originalPrice - salePrice) / originalPrice) * 100);
+    }
+
+    return 0;
   }, [product, originalPrice, salePrice]);
 
-  const stockLabel = product.inStock === false ? "Sold Out" : "In Stock";
-  const stockClass = product.inStock === false ? "sold-out" : "in-stock";
+  const hasDescription = Boolean(String(product.description || "").trim());
+  const hasCategory = Boolean(String(product.category || "").trim());
+  const hasSizes = sizes.length > 0;
+  const hasDiscount = discountPercent > 0;
+  const hasOriginalPrice = Boolean(originalPrice);
+  const isOutOfStock = product.inStock === false;
 
   return (
     <div className="premium-product-card h-100">
       <div className="premium-product-media">
         <div className="premium-product-top-badges">
-          <span className="premium-discount-badge">-{discountPercent}%</span>
-          <span className={`premium-stock-badge ${stockClass}`}>{stockLabel}</span>
+          {hasDiscount && (
+            <span className="premium-discount-badge">-{discountPercent}%</span>
+          )}
+
+          <span
+            className={`premium-stock-badge ${
+              isOutOfStock ? "sold-out" : "in-stock"
+            }`}
+          >
+            {isOutOfStock ? "Sold Out" : "In Stock"}
+          </span>
         </div>
 
         <button
@@ -62,7 +83,7 @@ const ProductCard = ({
           onClick={() => onToggleWishlist(product)}
           aria-label="Toggle wishlist"
         >
-          <i className={`fa ${isWishlisted ? "fa-heart" : "fa-heart-o"}`}></i>
+          <i className={isWishlisted ? "fa fa-heart" : "far fa-heart"}></i>
         </button>
 
         <button
@@ -80,7 +101,7 @@ const ProductCard = ({
               <img
                 src={imageGallery[activeImage]}
                 alt={product.title}
-                className="premium-product-image"
+                className="premium-product-image img-fluid"
               />
             ) : (
               <div className="premium-product-image-fallback">No Image</div>
@@ -93,12 +114,12 @@ const ProductCard = ({
             {imageGallery.slice(0, 4).map((img, index) => (
               <button
                 type="button"
-                key={`${product.id}-thumb-${index}`}
+                key={`${img}-${index}`}
                 className={`premium-thumb-btn ${activeImage === index ? "active" : ""}`}
                 onClick={() => setActiveImage(index)}
                 aria-label={`Show image ${index + 1}`}
               >
-                <img src={img} alt={`thumb-${index + 1}`} />
+                <img src={img} alt={`${product.title} ${index + 1}`} />
               </button>
             ))}
           </div>
@@ -106,42 +127,50 @@ const ProductCard = ({
       </div>
 
       <div className="premium-product-body">
-        <div className="premium-product-category">
-          {product.category || "Fashion"}
-        </div>
+        {hasCategory && <div className="premium-product-category">{product.category}</div>}
 
         <h5 className="premium-product-title">
           <Link to={`/product/${product.id}`}>{product.title}</Link>
         </h5>
 
-        <p className="premium-product-description">
-          {product.description?.length > 72
-            ? `${product.description.slice(0, 72)}...`
-            : product.description}
-        </p>
+        {hasDescription && (
+          <p className="premium-product-description">
+            {product.description.length > 74
+              ? `${product.description.slice(0, 74)}...`
+              : product.description}
+          </p>
+        )}
 
         <div className="premium-price-row">
           <span className="premium-sale-price">${salePrice.toFixed(2)}</span>
-          <span className="premium-original-price">${originalPrice}</span>
+
+          {hasOriginalPrice && (
+            <span className="premium-original-price">
+              ${originalPrice.toFixed(2)}
+            </span>
+          )}
         </div>
 
-        <div className="premium-size-wrap">
-          <span className="premium-size-label">Size</span>
-          <div className="premium-size-list">
-            {sizes.slice(0, 4).map((size) => (
-              <span key={`${product.id}-${size}`} className="premium-size-chip">
-                {size}
-              </span>
-            ))}
+        {hasSizes && (
+          <div className="premium-size-wrap">
+            <span className="premium-size-label">Size</span>
+
+            <div className="premium-size-list">
+              {sizes.slice(0, 4).map((size) => (
+                <span key={size} className="premium-size-chip">
+                  {size}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="premium-product-actions">
           <button
             type="button"
             className="premium-add-cart-btn"
             onClick={() => onAddToCart(product)}
-            disabled={product.inStock === false}
+            disabled={isOutOfStock}
           >
             <i className="fa fa-shopping-bag"></i>
             <span>Add to Cart</span>
@@ -149,7 +178,7 @@ const ProductCard = ({
 
           <Link
             to={`/product/${product.id}`}
-            className={`premium-buy-now-btn ${product.inStock === false ? "disabled" : ""}`}
+            className={`premium-buy-now-btn ${isOutOfStock ? "disabled" : ""}`}
           >
             <i className="fa fa-bolt"></i>
             <span>Buy Now</span>

@@ -1,37 +1,49 @@
-import React from "react";
+import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import { Navbar, Footer } from "../components";
+import { Footer, Navbar, ProductCard, QuickViewModal } from "../components";
 import { addCart, delWishlist } from "../redux/action";
+import toast from "react-hot-toast";
 import "./Wishlist.css";
 
 const Wishlist = () => {
-  const state = useSelector((state) => state.handleWishlist);
+  const state = useSelector((state) => state.handleWishlist) || [];
   const dispatch = useDispatch();
+  const [quickViewProduct, setQuickViewProduct] = useState(null);
 
   const removeFromWishlist = (product) => {
     dispatch(delWishlist(product));
+    toast.success("Removed from wishlist");
   };
 
   const moveToCart = (product) => {
     dispatch(addCart(product));
     dispatch(delWishlist(product));
+    toast.success("Moved to cart");
+  };
+
+  const isInWishlist = (product) => {
+    return state.some((item) => item.id === product.id);
   };
 
   const EmptyWishlist = () => {
     return (
-      <div className="container py-5">
-        <div className="wishlist-empty-box text-center">
-          <div className="wishlist-empty-icon">
-            <i className="fa fa-heart-o"></i>
+      <div className="wishlist-page">
+        <div className="container py-5">
+          <div className="wishlist-empty-box text-center">
+            <div className="wishlist-empty-icon">
+              <i className="far fa-heart"></i>
+            </div>
+
+            <h2 className="wishlist-empty-title">Your Wishlist is Empty</h2>
+            <p className="wishlist-empty-subtitle mb-4">
+              Save your favorite products here and review them later.
+            </p>
+
+            <Link to="/product" className="wishlist-continue-btn">
+              Continue Shopping
+            </Link>
           </div>
-          <h3 className="mb-3">Your Wishlist is Empty</h3>
-          <p className="text-muted mb-4">
-            Save your favorite products here and review them later.
-          </p>
-          <Link to="/product" className="btn btn-dark rounded-pill px-4 py-2">
-            Continue Shopping
-          </Link>
         </div>
       </div>
     );
@@ -39,79 +51,46 @@ const Wishlist = () => {
 
   const ShowWishlist = () => {
     return (
-      <div className="container py-5">
-        <div className="wishlist-header mb-4">
-          <div>
-            <span className="wishlist-badge">Saved Items</span>
-            <h2 className="wishlist-title mt-2">My Wishlist</h2>
-            <p className="wishlist-subtitle mb-0">
-              Your favorite picks, ready to move into cart anytime.
-            </p>
+      <div className="wishlist-page">
+        <div className="container py-4">
+          <div className="wishlist-header mb-4">
+            <div>
+              <span className="wishlist-badge">Saved Items</span>
+              <h2 className="wishlist-title">My Wishlist</h2>
+              <p className="wishlist-subtitle mb-0">
+                Your favorite picks, ready to move into cart anytime.
+              </p>
+            </div>
+
+            <div className="wishlist-count-box">
+              <span>{state.length}</span>
+              <small>Items</small>
+            </div>
           </div>
 
-          <div className="wishlist-count-box">
-            <span>{state.length}</span>
-            <small>Items</small>
-          </div>
-        </div>
-
-        <div className="row g-4">
-          {state.map((item) => {
-            return (
-              <div className="col-12 col-sm-6 col-lg-4 col-xl-3" key={item.id}>
-                <div className="wishlist-card h-100">
-                  <button
-                    className="wishlist-remove-btn"
-                    onClick={() => removeFromWishlist(item)}
-                    aria-label="Remove from wishlist"
-                  >
-                    <i className="fa fa-times"></i>
-                  </button>
-
-                  <div className="wishlist-image-wrap">
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="wishlist-image"
-                    />
-                  </div>
-
-                  <div className="wishlist-card-body">
-                    <p className="wishlist-category">
-                      {item.category || "Fashion"}
-                    </p>
-
-                    <h5 className="wishlist-product-title">
-                      {item.title}
-                    </h5>
-
-                    <div className="wishlist-price-row">
-                      <span className="wishlist-price">${item.price}</span>
-                      <span className="wishlist-stock">In Stock</span>
-                    </div>
-
-                    <div className="wishlist-actions">
-                      <button
-                        className="wishlist-cart-btn"
-                        onClick={() => moveToCart(item)}
-                      >
-                        <i className="fa fa-shopping-bag me-2"></i>
-                        Move to Cart
-                      </button>
-
-                      <Link
-                        to={`/product/${item.id}`}
-                        className="wishlist-view-btn"
-                      >
-                        View
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+          <div className="row g-4">
+            {state.map((item) => (
+              <div key={item.id} className="col-xxl-3 col-xl-4 col-md-6 col-12">
+                <ProductCard
+                  product={item}
+                  onAddToCart={moveToCart}
+                  onToggleWishlist={removeFromWishlist}
+                  isWishlisted={isInWishlist(item)}
+                  onQuickView={setQuickViewProduct}
+                />
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
+
+        <QuickViewModal
+          product={quickViewProduct}
+          isOpen={Boolean(quickViewProduct)}
+          onClose={() => setQuickViewProduct(null)}
+          onAddToCart={moveToCart}
+          onToggleWishlist={removeFromWishlist}
+          isWishlisted={quickViewProduct ? isInWishlist(quickViewProduct) : false}
+        />
       </div>
     );
   };
@@ -119,9 +98,7 @@ const Wishlist = () => {
   return (
     <>
       <Navbar />
-      <div className="wishlist-page">
-        {state.length ? <ShowWishlist /> : <EmptyWishlist />}
-      </div>
+      {state.length ? <ShowWishlist /> : <EmptyWishlist />}
       <Footer />
     </>
   );

@@ -42,8 +42,14 @@ const Product = () => {
         const normalizedSingleProduct = normalizeProduct(result.data, 0);
 
         if (isMounted) {
+          const cleanedSizes = Array.isArray(normalizedSingleProduct.sizes)
+            ? normalizedSingleProduct.sizes
+                .map((size) => String(size || "").trim())
+                .filter(Boolean)
+            : [];
+
           setProduct(normalizedSingleProduct);
-          setSelectedSize(normalizedSingleProduct.sizes?.[0] || "");
+          setSelectedSize(cleanedSizes[0] || "");
           setActiveImage(0);
           setLoading(false);
         }
@@ -73,6 +79,7 @@ const Product = () => {
         }
       } catch (error) {
         console.log("Product fetch error:", error.message);
+
         if (isMounted) {
           setLoading(false);
           setLoading2(false);
@@ -91,8 +98,22 @@ const Product = () => {
 
   const imageGallery = useMemo(() => {
     if (!product) return [];
-    return product.images || [];
+    return Array.isArray(product.images) ? product.images.filter(Boolean) : [];
   }, [product]);
+
+  const cleanedSizes = useMemo(() => {
+    if (!product?.sizes || !Array.isArray(product.sizes)) return [];
+    return product.sizes
+      .map((size) => String(size || "").trim())
+      .filter(Boolean);
+  }, [product]);
+
+  const hasCategory = Boolean(String(product?.category || "").trim());
+  const hasDescription = Boolean(String(product?.description || "").trim());
+  const hasOriginalPrice =
+    Number(product?.originalPrice || 0) > Number(product?.price || 0);
+  const hasDiscount = Number(product?.discountPercent || 0) > 0;
+  const hasSizes = cleanedSizes.length > 0;
 
   const isWishlisted = useMemo(() => {
     if (!product) return false;
@@ -122,19 +143,17 @@ const Product = () => {
 
   const Loading = () => {
     return (
-      <div className="container my-5 py-2">
-        <div className="row g-4">
-          <div className="col-lg-6">
-            <Skeleton height={520} style={{ borderRadius: "28px" }} />
+      <div className="container py-5">
+        <div className="row">
+          <div className="col-md-6">
+            <Skeleton height={520} />
           </div>
-          <div className="col-lg-6">
-            <Skeleton height={40} width={180} />
-            <Skeleton height={60} className="mt-3" />
-            <Skeleton height={24} width={130} className="mt-3" />
-            <Skeleton height={36} width={160} className="mt-3" />
-            <Skeleton count={4} className="mt-3" />
-            <Skeleton height={56} className="mt-4" />
-            <Skeleton height={56} className="mt-3" />
+          <div className="col-md-6">
+            <Skeleton height={40} width={140} className="mb-3" />
+            <Skeleton height={50} className="mb-3" />
+            <Skeleton height={30} width={180} className="mb-3" />
+            <Skeleton count={5} className="mb-2" />
+            <Skeleton height={52} width={220} className="mt-4" />
           </div>
         </div>
       </div>
@@ -145,9 +164,9 @@ const Product = () => {
     if (!product) {
       return (
         <div className="container py-5 text-center">
-          <h3 className="fw-bold mb-3">Product not found</h3>
-          <p className="text-muted">The requested product could not be loaded.</p>
-          <Link to="/product" className="btn btn-dark rounded-pill px-4 mt-2">
+          <h3 className="mb-3">Product not found</h3>
+          <p className="text-muted mb-4">The requested product could not be loaded.</p>
+          <Link to="/product" className="btn btn-dark">
             Back to Products
           </Link>
         </div>
@@ -155,187 +174,187 @@ const Product = () => {
     }
 
     return (
-      <div className="premium-product-page py-5">
-        <div className="container">
-          <div className="premium-product-layout">
-            <div className="premium-product-gallery-card">
-              <div className="premium-product-main-image-wrap">
+      <div className="single-product-page">
+        <div className="container py-5">
+          <div className="row g-5 align-items-start">
+            <div className="col-lg-6">
+              <div className="single-product-gallery">
                 {imageGallery.length > 0 && (
-                  <img
-                    src={imageGallery[activeImage]}
-                    alt={product.title}
-                    className="premium-product-main-image"
-                  />
+                  <div className="single-product-main-image">
+                    <img
+                      src={imageGallery[activeImage]}
+                      alt={product.title}
+                      className="img-fluid"
+                    />
+                  </div>
                 )}
 
-                <div className="premium-product-floating-badges">
-                  <span className="premium-page-discount-badge">
-                    -{product.discountPercent}%
-                  </span>
+                <div className="single-product-badges">
+                  {hasDiscount && (
+                    <span className="single-product-discount">
+                      -{product.discountPercent}%
+                    </span>
+                  )}
                   <span
-                    className={`premium-page-stock-badge ${
+                    className={`single-product-stock ${
                       product.inStock === false ? "sold-out" : "in-stock"
                     }`}
                   >
                     {product.inStock === false ? "Sold Out" : "In Stock"}
                   </span>
                 </div>
-              </div>
 
-              {imageGallery.length > 1 && (
-                <div className="premium-product-gallery-thumbs">
-                  {imageGallery.slice(0, 5).map((img, index) => (
-                    <button
-                      key={`${product.id}-gallery-${index}`}
-                      type="button"
-                      className={`premium-product-gallery-thumb ${
-                        activeImage === index ? "active" : ""
-                      }`}
-                      onClick={() => setActiveImage(index)}
-                    >
-                      <img src={img} alt={`product-${index + 1}`} />
-                    </button>
-                  ))}
-                </div>
-              )}
+                {imageGallery.length > 1 && (
+                  <div className="single-product-thumbs">
+                    {imageGallery.slice(0, 5).map((img, index) => (
+                      <button
+                        type="button"
+                        key={`${img}-${index}`}
+                        className={`single-product-thumb ${
+                          activeImage === index ? "active" : ""
+                        }`}
+                        onClick={() => setActiveImage(index)}
+                      >
+                        <img
+                          src={img}
+                          alt={`${product.title} ${index + 1}`}
+                          className="img-fluid"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="premium-product-info-card">
-              <div className="premium-page-category">{product.category}</div>
+            <div className="col-lg-6">
+              <div className="single-product-content">
+                {hasCategory && <span className="single-product-category">{product.category}</span>}
 
-              <h1 className="premium-page-title">{product.title}</h1>
+                <h1 className="single-product-title">{product.title}</h1>
 
-              <div className="premium-page-rating">
-                <span className="premium-rating-chip">
+                <div className="single-product-rating">
                   <i className="fa fa-star"></i>
-                  {product.rating?.rate || 4.8}
-                </span>
-                <span className="premium-rating-count">
-                  ({product.rating?.count || 120} reviews)
-                </span>
-              </div>
+                  <span>{product.rating?.rate || 4.8}</span>
+                  <small>({product.rating?.count || 120} reviews)</small>
+                </div>
 
-              <div className="premium-page-price-row">
-                <span className="premium-page-sale-price">
-                  ${Number(product.price || 0).toFixed(2)}
-                </span>
-                <span className="premium-page-original-price">
-                  ${Number(product.originalPrice || 0).toFixed(2)}
-                </span>
-              </div>
+                <div className="single-product-price">
+                  <span className="single-product-sale-price">
+                    ${Number(product.price || 0).toFixed(2)}
+                  </span>
 
-              <p className="premium-page-description">{product.description}</p>
-
-              <div className="premium-page-size-block">
-                <div className="premium-page-label-row">
-                  <span className="premium-page-label">Select Size</span>
-                  {selectedSize && (
-                    <span className="premium-selected-size">
-                      Selected: {selectedSize}
+                  {hasOriginalPrice && (
+                    <span className="single-product-original-price">
+                      ${Number(product.originalPrice || 0).toFixed(2)}
                     </span>
                   )}
                 </div>
 
-                <div className="premium-page-size-list">
-                  {product.sizes?.map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      className={`premium-page-size-chip ${
-                        selectedSize === size ? "active" : ""
-                      }`}
-                      onClick={() => setSelectedSize(size)}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                {hasDescription && (
+                  <p className="single-product-description">{product.description}</p>
+                )}
 
-              <div className="premium-page-action-grid">
-                <button
-                  className="premium-page-cart-btn"
-                  onClick={() => addProduct(product)}
-                  disabled={product.inStock === false}
-                >
-                  <i className="fa fa-shopping-bag"></i>
-                  <span>Add to Cart</span>
-                </button>
+                {hasSizes && (
+                  <div className="single-product-size-block">
+                    <div className="single-product-size-head">
+                      <span>Select Size</span>
+                      {selectedSize && (
+                        <span className="single-product-selected-size">
+                          Selected: {selectedSize}
+                        </span>
+                      )}
+                    </div>
 
-                <button
-                  className={`premium-page-wishlist-btn ${
-                    isWishlisted ? "active" : ""
-                  }`}
-                  onClick={() => toggleWishlist(product)}
-                >
-                  <i className={`fa ${isWishlisted ? "fa-heart" : "fa-heart-o"}`}></i>
-                  <span>
-                    {isWishlisted ? "Saved in Wishlist" : "Add to Wishlist"}
-                  </span>
-                </button>
-
-                <Link
-                  to="/cart"
-                  className={`premium-page-buy-btn ${
-                    product.inStock === false ? "disabled" : ""
-                  }`}
-                >
-                  <i className="fa fa-bolt"></i>
-                  <span>Buy Now</span>
-                </Link>
-              </div>
-
-              <div className="premium-page-extra-info">
-                <div className="premium-info-item">
-                  <i className="fa fa-truck"></i>
-                  <span>Fast shipping available</span>
-                </div>
-                <div className="premium-info-item">
-                  <i className="fa fa-refresh"></i>
-                  <span>Easy 7-day returns</span>
-                </div>
-                <div className="premium-info-item">
-                  <i className="fa fa-shield"></i>
-                  <span>Secure checkout experience</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="premium-similar-section">
-            <div className="products-section-header text-center mb-4">
-              <span className="products-section-badge">Related Picks</span>
-              <h2 className="products-section-title">You may also like</h2>
-              <p className="products-section-subtitle mb-0">
-                Explore more premium styles from this collection
-              </p>
-            </div>
-
-            <div className="row g-4">
-              {similarProducts.slice(0, 4).map((item) => (
-                <div key={item.id} className="col-xl-3 col-lg-4 col-sm-6 col-12">
-                  <ProductCard
-                    product={item}
-                    onAddToCart={addProduct}
-                    onToggleWishlist={toggleWishlist}
-                    isWishlisted={isInWishlist(item)}
-                    onQuickView={setQuickViewProduct}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {loading2 && (
-              <div className="row g-4 mt-2">
-                {[1, 2, 3, 4].map((item) => (
-                  <div className="col-xl-3 col-lg-4 col-sm-6 col-12" key={item}>
-                    <Skeleton height={430} style={{ borderRadius: "22px" }} />
+                    <div className="single-product-sizes">
+                      {cleanedSizes.map((size) => (
+                        <button
+                          type="button"
+                          key={size}
+                          className={`single-product-size-btn ${
+                            selectedSize === size ? "active" : ""
+                          }`}
+                          onClick={() => setSelectedSize(size)}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
+
+                <div className="single-product-actions">
+                  <button
+                    type="button"
+                    className="single-product-cart-btn"
+                    onClick={() => addProduct(product)}
+                    disabled={product.inStock === false}
+                  >
+                    <i className="fa fa-shopping-bag me-2"></i>
+                    <span>Add to Cart</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="single-product-wishlist-btn"
+                    onClick={() => toggleWishlist(product)}
+                  >
+                    <i
+                      className={`${
+                        isWishlisted ? "fa fa-heart" : "far fa-heart"
+                      } me-2`}
+                    ></i>
+                    <span>
+                      {isWishlisted ? "Saved in Wishlist" : "Add to Wishlist"}
+                    </span>
+                  </button>
+
+                  <Link to="/checkout" className="single-product-buy-btn">
+                    <i className="fa fa-bolt me-2"></i>
+                    <span>Buy Now</span>
+                  </Link>
+                </div>
+
+                <div className="single-product-features">
+                  <div>Fast shipping available</div>
+                  <div>Easy 7-day returns</div>
+                  <div>Secure checkout experience</div>
+                </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
+
+        <section className="container pb-5">
+          <div className="products-section-header text-center mb-4">
+            <span className="products-section-badge">Related Picks</span>
+            <h2 className="products-section-title">You may also like</h2>
+            <p className="products-section-subtitle mb-0">
+              Explore more premium styles from this collection
+            </p>
+          </div>
+
+          <div className="row">
+            {similarProducts.slice(0, 4).map((item) => (
+              <div key={item.id} className="col-xxl-3 col-lg-4 col-sm-6 col-12 mb-4">
+                <ProductCard
+                  product={item}
+                  onAddToCart={addProduct}
+                  onToggleWishlist={toggleWishlist}
+                  isWishlisted={isInWishlist(item)}
+                  onQuickView={setQuickViewProduct}
+                />
+              </div>
+            ))}
+
+            {loading2 &&
+              [1, 2, 3, 4].map((item) => (
+                <div key={item} className="col-xxl-3 col-lg-4 col-sm-6 col-12 mb-4">
+                  <Skeleton height={430} style={{ borderRadius: "22px" }} />
+                </div>
+              ))}
+          </div>
+        </section>
       </div>
     );
   };

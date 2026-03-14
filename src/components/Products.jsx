@@ -28,6 +28,11 @@ const Products = () => {
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
 
+  const [categoriesMenu, setCategoriesMenu] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [openCategorySections, setOpenCategorySections] = useState({});
+
   const [pagination, setPagination] = useState({
     total_items: 0,
     total_pages: 0,
@@ -45,8 +50,11 @@ const Products = () => {
 
   const [localMinPrice, setLocalMinPrice] = useState(0);
   const [localMaxPrice, setLocalMaxPrice] = useState(1000);
+  const [minPriceInput, setMinPriceInput] = useState("0");
+  const [maxPriceInput, setMaxPriceInput] = useState("1000");
 
   const sortDropdownRef = useRef(null);
+  const priceApplyTimeoutRef = useRef(null);
 
   const dispatch = useDispatch();
   const location = useLocation();
@@ -66,9 +74,22 @@ const Products = () => {
         .map((item) => item.trim())
         .filter(Boolean)
     : [];
+
+  const effectiveCategorySlugs = useMemo(() => {
+    const slugs =
+      selectedCategorySlugs.length > 0
+        ? selectedCategorySlugs
+        : selectedCategorySlug
+        ? [selectedCategorySlug]
+        : [];
+
+    return Array.from(new Set(slugs)).filter(Boolean);
+  }, [selectedCategorySlug, selectedCategorySlugs]);
+
   const searchTerm = queryParams.get("search") || "";
   const currentPage = Number(queryParams.get("page") || 1);
   const sortBy = queryParams.get("sort") || "featured";
+
   const selectedSizes = queryParams.get("sizes")
     ? queryParams
         .get("sizes")
@@ -76,28 +97,172 @@ const Products = () => {
         .map((item) => item.trim())
         .filter(Boolean)
     : [];
+
   const stockFilter = queryParams.get("stock") || "";
+
   const minPriceParam = queryParams.get("min_price");
   const maxPriceParam = queryParams.get("max_price");
+  const appliedMinPrice = minPriceParam !== null ? Number(minPriceParam) : null;
+  const appliedMaxPrice = maxPriceParam !== null ? Number(maxPriceParam) : null;
 
   const selectedSortLabel = useMemo(() => {
     return sortOptions.find((item) => item.value === sortBy)?.label || "Featured";
   }, [sortBy]);
 
-  const priceRange = useMemo(() => {
-    const min = minPriceParam !== null ? Number(minPriceParam) : 0;
-    const max =
-      maxPriceParam !== null
-        ? Number(maxPriceParam)
-        : filtersMeta.max_price || 1000;
+  const availableSizes = useMemo(() => {
+    return Array.from(
+      new Set(
+        (filtersMeta.available_sizes || [])
+          .map((size) => String(size || "").trim())
+          .filter(Boolean)
+      )
+    );
+  }, [filtersMeta.available_sizes]);
 
-    return [min, max];
-  }, [minPriceParam, maxPriceParam, filtersMeta.max_price]);
+  const priceLimits = useMemo(() => {
+    const minLimit = Number(filtersMeta.min_price || 0);
+    const maxLimit = Number(filtersMeta.max_price || 0);
+
+    return {
+      minLimit,
+      maxLimit: maxLimit >= minLimit ? maxLimit : minLimit,
+    };
+  }, [filtersMeta.min_price, filtersMeta.max_price]);
+
+  const priceRange = useMemo(() => {
+    const minCandidate =
+      appliedMinPrice !== null && !Number.isNaN(appliedMinPrice)
+        ? appliedMinPrice
+        : priceLimits.minLimit;
+
+    const maxCandidate =
+      appliedMaxPrice !== null && !Number.isNaN(appliedMaxPrice)
+        ? appliedMaxPrice
+        : priceLimits.maxLimit;
+
+    return [minCandidate, maxCandidate];
+  }, [appliedMinPrice, appliedMaxPrice, priceLimits.minLimit, priceLimits.maxLimit]);
+
+  const categorySlugMap = useMemo(() => {
+    const map = {};
+
+    (categoriesMenu || []).forEach((section) => {
+      (section?.children || []).forEach((group) => {
+        (group?.children || []).forEach((category) => {
+          if (category?.slug) {
+            map[category.slug] = category.title || category.slug;
+          }
+        });
+      });
+    });
+
+    return map;
+  }, [categoriesMenu]);
+
+  const selectedCategoryNames = useMemo(() => {
+    return effectiveCategorySlugs.map((slug) => {
+      if (categorySlugMap[slug]) return categorySlugMap[slug];
+
+      return String(slug)
+        .split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    });
+  }, [effectiveCategorySlugs, categorySlugMap]);
+
+  const filteredCategoriesMenu = useMemo(() => {
+    const term = String(categorySearch || "").trim().toLowerCase();
+
+    if (!term) {
+      return categoriesMenu;
+    }
+
+    return (categoriesMenu || [])
+      .map((section) => {
+        const nextGroups = (section?.children || [])
+          .map((group) => {
+            const nextChildren = (group?.children || []).filter((category) =>
+              String(category?.title || "")
+                .toLowerCase()
+                .includes(term)
+            );
+
+            return {
+              ...group,
+              children: nextChildren,
+            };
+          })
+          .filter((group) => (group?.children || []).length > 0);
+
+        return {
+          ...section,
+          children: nextGroups,
+        };
+      })
+      .filter((section) => (section?.children || []).length > 0);
+  }, [categoriesMenu, categorySearch]);
+
+  const selectedCategoriesCount = effectiveCategorySlugs.length;
+
+  const hasMinPriceFilter =
+    appliedMinPrice !== null &&
+    !Number.isNaN(appliedMinPrice) &&
+    appliedMinPrice > priceLimits.minLimit;
+
+  const hasMaxPriceFilter =
+    appliedMaxPrice !== null &&
+    !Number.isNaN(appliedMaxPrice) &&
+    appliedMaxPrice < priceLimits.maxLimit;
+
+  const priceChipLabel = useMemo(() => {
+    if (!hasMinPriceFilter && !hasMaxPriceFilter) return "";
+
+    if (hasMinPriceFilter && hasMaxPriceFilter) {
+      return `$${priceRange[0]} - $${priceRange[1]}`;
+    }
+
+    if (hasMinPriceFilter) {
+      return `From $${priceRange[0]}`;
+    }
+
+    return `Up to $${priceRange[1]}`;
+  }, [hasMinPriceFilter, hasMaxPriceFilter, priceRange]);
+
+  const priceMinPercent = useMemo(() => {
+    const range = priceLimits.maxLimit - priceLimits.minLimit || 1;
+    const value = Number(localMinPrice || 0);
+
+    return ((value - priceLimits.minLimit) / range) * 100;
+  }, [localMinPrice, priceLimits.maxLimit, priceLimits.minLimit]);
+
+  const priceMaxPercent = useMemo(() => {
+    const range = priceLimits.maxLimit - priceLimits.minLimit || 1;
+    const value = Number(localMaxPrice || 0);
+
+    return ((value - priceLimits.minLimit) / range) * 100;
+  }, [localMaxPrice, priceLimits.maxLimit, priceLimits.minLimit]);
 
   useEffect(() => {
-    setLocalMinPrice(priceRange[0]);
-    setLocalMaxPrice(priceRange[1]);
-  }, [priceRange]);
+    const { minLimit, maxLimit } = priceLimits;
+
+    let nextMin = Number(priceRange[0] ?? minLimit);
+    let nextMax = Number(priceRange[1] ?? maxLimit);
+
+    if (Number.isNaN(nextMin)) nextMin = minLimit;
+    if (Number.isNaN(nextMax)) nextMax = maxLimit;
+
+    nextMin = Math.max(minLimit, Math.min(nextMin, maxLimit));
+    nextMax = Math.max(minLimit, Math.min(nextMax, maxLimit));
+
+    if (nextMin > nextMax) {
+      nextMin = nextMax;
+    }
+
+    setLocalMinPrice(nextMin);
+    setLocalMaxPrice(nextMax);
+    setMinPriceInput(String(nextMin));
+    setMaxPriceInput(String(nextMax));
+  }, [priceRange, priceLimits]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -110,8 +275,68 @@ const Products = () => {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (priceApplyTimeoutRef.current) {
+        clearTimeout(priceApplyTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const getCategoriesMenu = async () => {
+      setCategoriesLoading(true);
+
+      try {
+        const response = await fetch(API_ENDPOINTS.categoriesMenu);
+        const result = await response.json();
+
+        if (!response.ok || result?.status !== 1) {
+          throw new Error(result?.message || "Failed to fetch categories");
+        }
+
+        const menu = Array.isArray(result?.data) ? result.data : [];
+
+        if (isMounted) {
+          setCategoriesMenu(menu);
+
+          setOpenCategorySections((prev) => {
+            const next = { ...prev };
+
+            menu.forEach((section) => {
+              if (typeof next?.[section?.id] === "undefined") {
+                next[section.id] = true;
+              }
+            });
+
+            return next;
+          });
+        }
+      } catch (error) {
+        console.log("Categories fetch error:", error.message);
+
+        if (isMounted) {
+          setCategoriesMenu([]);
+        }
+      } finally {
+        if (isMounted) {
+          setCategoriesLoading(false);
+        }
+      }
+    };
+
+    getCategoriesMenu();
+
+    return () => {
+      isMounted = false;
     };
   }, []);
 
@@ -142,6 +367,59 @@ const Products = () => {
     navigate(`/product${params.toString() ? `?${params.toString()}` : ""}`);
   };
 
+  const applyCategorySelection = (slugs = []) => {
+    const cleaned = Array.from(new Set(slugs)).filter(Boolean);
+
+    if (cleaned.length === 1) {
+      updateQueryParams({ category: cleaned[0], categories: "" }, true);
+      return;
+    }
+
+    if (cleaned.length > 1) {
+      updateQueryParams({ categories: cleaned, category: "" }, true);
+      return;
+    }
+
+    updateQueryParams({ category: "", categories: "" }, true);
+  };
+
+  const toggleCategoryFilter = (slug) => {
+    const exists = effectiveCategorySlugs.includes(slug);
+
+    const nextSlugs = exists
+      ? effectiveCategorySlugs.filter((item) => item !== slug)
+      : [...effectiveCategorySlugs, slug];
+
+    applyCategorySelection(nextSlugs);
+  };
+
+  const getSectionCategorySlugs = (section) => {
+    return (section?.children || [])
+      .flatMap((group) => group?.children || [])
+      .map((category) => category?.slug)
+      .filter(Boolean);
+  };
+
+  const toggleCategorySection = (sectionId) => {
+    setOpenCategorySections((prev) => ({
+      ...prev,
+      [sectionId]: !prev?.[sectionId],
+    }));
+  };
+
+  const selectAllInSection = (section) => {
+    const sectionSlugs = getSectionCategorySlugs(section);
+    applyCategorySelection([...effectiveCategorySlugs, ...sectionSlugs]);
+  };
+
+  const clearSectionSelection = (section) => {
+    const sectionSlugs = getSectionCategorySlugs(section);
+
+    applyCategorySelection(
+      effectiveCategorySlugs.filter((slug) => !sectionSlugs.includes(slug))
+    );
+  };
+
   const buildProductsApiUrl = () => {
     const params = new URLSearchParams();
 
@@ -163,12 +441,12 @@ const Products = () => {
       params.set("stock", stockFilter);
     }
 
-    if (priceRange[0] > 0) {
-      params.set("min_price", String(priceRange[0]));
+    if (appliedMinPrice !== null && !Number.isNaN(appliedMinPrice)) {
+      params.set("min_price", String(appliedMinPrice));
     }
 
-    if (priceRange[1] > 0) {
-      params.set("max_price", String(priceRange[1]));
+    if (appliedMaxPrice !== null && !Number.isNaN(appliedMaxPrice)) {
+      params.set("max_price", String(appliedMaxPrice));
     }
 
     if (selectedSizes.length > 0) {
@@ -251,7 +529,7 @@ const Products = () => {
   }, [location.search]);
 
   const pageTitle = useMemo(() => {
-    if (searchTerm && (selectedCategorySlug || selectedCategorySlugs.length > 0)) {
+    if (searchTerm && selectedCategoryNames.length > 0) {
       return `Results for "${searchTerm}"`;
     }
 
@@ -259,37 +537,36 @@ const Products = () => {
       return `Search: ${searchTerm}`;
     }
 
-    if (selectedCategorySlugs.length > 0) {
-      return "Grouped Collection";
+    if (selectedCategoryNames.length === 1) {
+      return selectedCategoryNames[0];
     }
 
-    if (!selectedCategorySlug) return "Latest Products";
+    if (selectedCategoryNames.length > 1) {
+      return "Curated Collection";
+    }
 
-    return selectedCategorySlug
-      .split("-")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  }, [selectedCategorySlug, selectedCategorySlugs, searchTerm]);
+    return "Latest Products";
+  }, [searchTerm, selectedCategoryNames]);
 
   const pageSubtitle = useMemo(() => {
-    if (searchTerm && (selectedCategorySlug || selectedCategorySlugs.length > 0)) {
-      return "Filtered by selected category and search query";
+    if (searchTerm && selectedCategoryNames.length > 0) {
+      return "Filtered by selected categories and search query";
     }
 
     if (searchTerm) {
       return "Matching products based on your search";
     }
 
-    if (selectedCategorySlugs.length > 0) {
-      return "Premium products from the selected category group";
+    if (selectedCategoryNames.length > 1) {
+      return `Premium products across ${selectedCategoryNames.length} selected categories`;
     }
 
-    if (selectedCategorySlug) {
-      return "Premium collection curated from your selected menu";
+    if (selectedCategoryNames.length === 1) {
+      return "Premium collection curated from your selected category";
     }
 
     return "Premium collection curated for your selection";
-  }, [selectedCategorySlug, selectedCategorySlugs, searchTerm]);
+  }, [searchTerm, selectedCategoryNames]);
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
@@ -302,22 +579,23 @@ const Products = () => {
       });
     }
 
-    if (selectedCategorySlug) {
-      chips.push({
-        key: "category",
-        label: selectedCategorySlug
-          .split("-")
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(" "),
-        onRemove: () => updateQueryParams({ category: "" }, true),
-      });
-    }
+    if (effectiveCategorySlugs.length > 0) {
+      effectiveCategorySlugs.forEach((slug) => {
+        const label = categorySlugMap[slug]
+          ? categorySlugMap[slug]
+          : String(slug)
+              .split("-")
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ");
 
-    if (selectedCategorySlugs.length > 0) {
-      chips.push({
-        key: "categories",
-        label: "Grouped Categories",
-        onRemove: () => updateQueryParams({ categories: "" }, true),
+        chips.push({
+          key: `category-${slug}`,
+          label,
+          onRemove: () =>
+            applyCategorySelection(
+              effectiveCategorySlugs.filter((item) => item !== slug)
+            ),
+        });
       });
     }
 
@@ -341,10 +619,10 @@ const Products = () => {
       });
     }
 
-    if (priceRange[0] > 0 || priceRange[1] < (filtersMeta.max_price || 1000)) {
+    if ((hasMinPriceFilter || hasMaxPriceFilter) && priceChipLabel) {
       chips.push({
         key: "price",
-        label: `$${priceRange[0]} - $${priceRange[1]}`,
+        label: priceChipLabel,
         onRemove: () =>
           updateQueryParams(
             {
@@ -367,12 +645,13 @@ const Products = () => {
     return chips;
   }, [
     searchTerm,
-    selectedCategorySlug,
-    selectedCategorySlugs,
+    effectiveCategorySlugs,
+    categorySlugMap,
     selectedSizes,
     stockFilter,
-    priceRange,
-    filtersMeta.max_price,
+    hasMinPriceFilter,
+    hasMaxPriceFilter,
+    priceChipLabel,
     sortBy,
     selectedSortLabel,
   ]);
@@ -423,29 +702,114 @@ const Products = () => {
 
     navigate(`/product${params.toString() ? `?${params.toString()}` : ""}`);
     setSortDropdownOpen(false);
+    setCategorySearch("");
+    setMobileFiltersOpen(false);
   };
 
-  const applyPriceFilter = () => {
-    const backendMax = Number(filtersMeta.max_price || 1000);
+  const parsePriceValue = (value, fallback) => {
+    if (value === "") return fallback;
 
-    let nextMin = Number(localMinPrice || 0);
-    let nextMax = Number(localMaxPrice || 0);
+    const parsed = Number(value);
 
-    if (nextMin < 0) nextMin = 0;
-    if (nextMax < 0) nextMax = 0;
-    if (nextMax > backendMax) nextMax = backendMax;
+    if (Number.isNaN(parsed)) {
+      return fallback;
+    }
+
+    return parsed;
+  };
+
+  const clampPriceValue = (value) => {
+    return Math.max(priceLimits.minLimit, Math.min(value, priceLimits.maxLimit));
+  };
+
+  const applyPriceFilter = (minValue = minPriceInput, maxValue = maxPriceInput) => {
+    const rawMin = parsePriceValue(minValue, priceLimits.minLimit);
+    const rawMax = parsePriceValue(maxValue, priceLimits.maxLimit);
+
+    let nextMin = clampPriceValue(rawMin);
+    let nextMax = clampPriceValue(rawMax);
 
     if (nextMin > nextMax) {
+      const swapValue = nextMin;
       nextMin = nextMax;
+      nextMax = swapValue;
     }
+
+    setLocalMinPrice(nextMin);
+    setLocalMaxPrice(nextMax);
+    setMinPriceInput(String(nextMin));
+    setMaxPriceInput(String(nextMax));
 
     updateQueryParams(
       {
-        min_price: nextMin > 0 ? nextMin : "",
-        max_price: nextMax > 0 ? nextMax : "",
+        min_price: nextMin > priceLimits.minLimit ? nextMin : "",
+        max_price: nextMax < priceLimits.maxLimit ? nextMax : "",
       },
       true
     );
+  };
+
+  const schedulePriceApply = (nextMin, nextMax) => {
+    if (priceApplyTimeoutRef.current) {
+      clearTimeout(priceApplyTimeoutRef.current);
+    }
+
+    priceApplyTimeoutRef.current = setTimeout(() => {
+      applyPriceFilter(String(nextMin), String(nextMax));
+    }, 350);
+  };
+
+  const handleMinRangeChange = (event) => {
+    const value = Number(event.target.value || 0);
+    const nextValue = value > localMaxPrice ? localMaxPrice : value;
+
+    setLocalMinPrice(nextValue);
+    setMinPriceInput(String(nextValue));
+    schedulePriceApply(nextValue, localMaxPrice);
+  };
+
+  const handleMaxRangeChange = (event) => {
+    const value = Number(event.target.value || 0);
+    const nextValue = value < localMinPrice ? localMinPrice : value;
+
+    setLocalMaxPrice(nextValue);
+    setMaxPriceInput(String(nextValue));
+    schedulePriceApply(localMinPrice, nextValue);
+  };
+
+  const handleMinPriceInputChange = (event) => {
+    const value = event.target.value.replace(/[^\d]/g, "");
+    setMinPriceInput(value);
+
+    if (value === "") return;
+
+    const numericValue = clampPriceValue(Number(value));
+    setLocalMinPrice(numericValue > localMaxPrice ? localMaxPrice : numericValue);
+  };
+
+  const handleMaxPriceInputChange = (event) => {
+    const value = event.target.value.replace(/[^\d]/g, "");
+    setMaxPriceInput(value);
+
+    if (value === "") return;
+
+    const numericValue = clampPriceValue(Number(value));
+    setLocalMaxPrice(numericValue < localMinPrice ? localMinPrice : numericValue);
+  };
+
+  const handleMinPriceInputBlur = () => {
+    applyPriceFilter(minPriceInput, maxPriceInput);
+  };
+
+  const handleMaxPriceInputBlur = () => {
+    applyPriceFilter(minPriceInput, maxPriceInput);
+  };
+
+  const handlePriceInputKeyDown = (event) => {
+    if (event.key === "Enter") {
+      applyPriceFilter(minPriceInput, maxPriceInput);
+      event.currentTarget.blur();
+    }
   };
 
   const Loading = () => {
@@ -469,7 +833,7 @@ const Products = () => {
           </div>
           <h4 className="fw-bold mb-3">No products found</h4>
           <p className="text-muted mb-3">
-            Try another search or choose a different category from the navbar menu.
+            Try another search or refine your filters for a better match.
           </p>
           <button
             type="button"
@@ -483,162 +847,417 @@ const Products = () => {
     );
   };
 
-  const FiltersUI = () => (
-    <div className="products-filter-card">
-      <div className="products-filter-scroll">
-        <div className="products-filter-head">
-          <div>
-            <span className="products-filter-badge">Filters</span>
-            <h4>Refine Results</h4>
+  const renderFiltersUI = () => {
+    return (
+      <div className="products-filter-card">
+        <div className="products-filter-scroll">
+          <div className="products-filter-head">
+            <div>
+              <span className="products-filter-badge">Filters</span>
+              <h4>Refine Results</h4>
+            </div>
+
+            <button
+              type="button"
+              className="products-clear-link"
+              onClick={clearAllFilters}
+            >
+              Clear All
+            </button>
           </div>
 
-          <button
-            type="button"
-            className="products-clear-link"
-            onClick={clearAllFilters}
-          >
-            Clear All
-          </button>
-        </div>
+          <div className="products-filter-group sort-group" ref={sortDropdownRef}>
+            <h6>Sort By</h6>
 
-        <div className="products-filter-group sort-group" ref={sortDropdownRef}>
-          <h6>Sort By</h6>
+            <button
+              type="button"
+              className={`products-custom-sort-trigger ${
+                sortDropdownOpen ? "open" : ""
+              }`}
+              onClick={() => setSortDropdownOpen((prev) => !prev)}
+            >
+              <span>{selectedSortLabel}</span>
+              <i
+                className={`fa ${
+                  sortDropdownOpen ? "fa-angle-up" : "fa-angle-down"
+                }`}
+              ></i>
+            </button>
 
-          <button
-            type="button"
-            className={`products-custom-sort-trigger ${
-              sortDropdownOpen ? "open" : ""
-            }`}
-            onClick={() => setSortDropdownOpen((prev) => !prev)}
-          >
-            <span>{selectedSortLabel}</span>
-            <i className={`fa ${sortDropdownOpen ? "fa-angle-up" : "fa-angle-down"}`}></i>
-          </button>
+            {sortDropdownOpen && (
+              <div className="products-custom-sort-menu">
+                {sortOptions.map((option) => (
+                  <button
+                    type="button"
+                    key={option.value}
+                    className={`products-custom-sort-option ${
+                      sortBy === option.value ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      updateQueryParams({ sort: option.value }, true);
+                      setSortDropdownOpen(false);
+                    }}
+                  >
+                    <span>{option.label}</span>
+                    {sortBy === option.value && <i className="fa fa-check"></i>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-          {sortDropdownOpen && (
-            <div className="products-custom-sort-menu">
-              {sortOptions.map((option) => (
+          <div className="products-filter-group">
+            <div className="products-filter-title-row">
+              <div className="products-filter-title-stack">
+                <h6>Categories</h6>
+                {selectedCategoriesCount > 0 && (
+                  <span className="products-selected-summary-badge">
+                    Selected ({selectedCategoriesCount})
+                  </span>
+                )}
+              </div>
+
+              {effectiveCategorySlugs.length > 0 && (
                 <button
                   type="button"
-                  key={option.value}
-                  className={`products-custom-sort-option ${
-                    sortBy === option.value ? "active" : ""
-                  }`}
-                  onClick={() => {
-                    updateQueryParams({ sort: option.value }, true);
-                    setSortDropdownOpen(false);
-                  }}
+                  className="products-mini-clear"
+                  onClick={() => applyCategorySelection([])}
                 >
-                  <span>{option.label}</span>
-                  {sortBy === option.value && <i className="fa fa-check"></i>}
+                  Clear
                 </button>
-              ))}
+              )}
+            </div>
+
+            <div className="products-category-search">
+              <i className="fa fa-search"></i>
+              <input
+                type="text"
+                className="products-category-search-input"
+                placeholder="Search categories..."
+                value={categorySearch}
+                onChange={(e) => setCategorySearch(e.target.value)}
+              />
+            </div>
+
+            {categoriesLoading ? (
+              <div className="products-filter-muted">Loading categories...</div>
+            ) : (filteredCategoriesMenu || []).length === 0 ? (
+              <div className="products-filter-muted">No categories found.</div>
+            ) : (
+              <div className="products-category-sections">
+                {filteredCategoriesMenu.map((section) => {
+                  const isSearchMode = Boolean(String(categorySearch || "").trim());
+                  const isOpen = isSearchMode
+                    ? true
+                    : Boolean(openCategorySections?.[section?.id]);
+
+                  const sectionCategories = getSectionCategorySlugs(section);
+                  const selectedCount = sectionCategories.filter((slug) =>
+                    effectiveCategorySlugs.includes(slug)
+                  ).length;
+                  const allSelected =
+                    sectionCategories.length > 0 &&
+                    selectedCount === sectionCategories.length;
+
+                  return (
+                    <div key={section.id} className="products-category-section">
+                      <button
+                        type="button"
+                        className={`products-category-section-btn ${
+                          isOpen ? "open" : ""
+                        }`}
+                        onClick={() => {
+                          if (isSearchMode) return;
+                          toggleCategorySection(section.id);
+                        }}
+                      >
+                        <span className="products-category-section-title">
+                          <span className="products-category-section-icon">
+                            {section.icon}
+                          </span>
+                          {section.title}
+                        </span>
+
+                        <span className="products-category-section-meta">
+                          {selectedCount > 0 && (
+                            <span className="products-category-selected-count">
+                              {selectedCount} selected
+                            </span>
+                          )}
+                          <i
+                            className={`fa ${
+                              isOpen ? "fa-angle-up" : "fa-angle-down"
+                            }`}
+                          ></i>
+                        </span>
+                      </button>
+
+                      {isOpen && (
+                        <div className="products-category-section-body">
+                          <div className="products-category-actions">
+                            <button
+                              type="button"
+                              className="products-section-action-btn"
+                              onClick={() => selectAllInSection(section)}
+                              disabled={allSelected}
+                            >
+                              Select All
+                            </button>
+
+                            <button
+                              type="button"
+                              className="products-section-action-btn secondary"
+                              onClick={() => clearSectionSelection(section)}
+                              disabled={selectedCount === 0}
+                            >
+                              Clear Selected
+                            </button>
+                          </div>
+
+                          {(section?.children || []).map((group) => (
+                            <div key={group.id} className="products-category-group">
+                              <div className="products-category-group-title">
+                                {group.title}
+                              </div>
+
+                              <div className="products-check-list">
+                                {(group?.children || []).map((category) => (
+                                  <label
+                                    key={category.slug}
+                                    className="products-check-item products-category-check-item"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={effectiveCategorySlugs.includes(
+                                        category.slug
+                                      )}
+                                      onChange={() =>
+                                        toggleCategoryFilter(category.slug)
+                                      }
+                                    />
+                                    <span>{category.title}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="products-filter-group">
+            <div className="products-filter-title-row">
+              <div className="products-filter-title-stack">
+                <h6>Price Range</h6>
+                <span className="products-filter-muted">
+                  Drag the slider or type your exact amount
+                </span>
+              </div>
+
+              {(hasMinPriceFilter || hasMaxPriceFilter) && (
+                <button
+                  type="button"
+                  className="products-mini-clear"
+                  onClick={() =>
+                    updateQueryParams(
+                      {
+                        min_price: "",
+                        max_price: "",
+                      },
+                      true
+                    )
+                  }
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            <div className="products-price-display-cards">
+              <div className="products-price-display-card">
+                <span className="products-price-display-label">Min</span>
+                <strong>${localMinPrice}</strong>
+              </div>
+
+              <div className="products-price-display-card">
+                <span className="products-price-display-label">Max</span>
+                <strong>${localMaxPrice}</strong>
+              </div>
+            </div>
+
+            <div className="products-range-shell">
+              <div className="products-range-header">
+                <span className="products-range-caption">Selected Range</span>
+                <span className="products-range-pill">
+                  ${localMinPrice} - ${localMaxPrice}
+                </span>
+              </div>
+
+              <div className="products-range-wrap premium">
+                <div className="products-range-track"></div>
+                <div
+                  className="products-range-progress"
+                  style={{
+                    left: `${Math.min(priceMinPercent, priceMaxPercent)}%`,
+                    width: `${Math.max(priceMaxPercent - priceMinPercent, 0)}%`,
+                  }}
+                ></div>
+
+                <input
+                  type="range"
+                  className="products-range-input range-min"
+                  min={priceLimits.minLimit}
+                  max={priceLimits.maxLimit}
+                  value={localMinPrice}
+                  onChange={handleMinRangeChange}
+                />
+
+                <input
+                  type="range"
+                  className="products-range-input range-max"
+                  min={priceLimits.minLimit}
+                  max={priceLimits.maxLimit}
+                  value={localMaxPrice}
+                  onChange={handleMaxRangeChange}
+                />
+              </div>
+
+              <div className="products-range-limits">
+                <span>${priceLimits.minLimit}</span>
+                <span>${priceLimits.maxLimit}</span>
+              </div>
+            </div>
+
+            <div className="products-price-inputs">
+              <div className="products-price-field">
+                <label className="products-price-label">Min</label>
+                <div className="products-price-input-wrap">
+                  <span className="products-price-prefix">$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={minPriceInput}
+                    onChange={handleMinPriceInputChange}
+                    onBlur={handleMinPriceInputBlur}
+                    onKeyDown={handlePriceInputKeyDown}
+                    className="products-price-input"
+                    placeholder={`${priceLimits.minLimit}`}
+                  />
+                </div>
+              </div>
+
+              <div className="products-price-field">
+                <label className="products-price-label">Max</label>
+                <div className="products-price-input-wrap">
+                  <span className="products-price-prefix">$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={maxPriceInput}
+                    onChange={handleMaxPriceInputChange}
+                    onBlur={handleMaxPriceInputBlur}
+                    onKeyDown={handlePriceInputKeyDown}
+                    className="products-price-input"
+                    placeholder={`${priceLimits.maxLimit}`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="products-apply-price-btn"
+              onClick={() => applyPriceFilter(minPriceInput, maxPriceInput)}
+            >
+              Apply Price
+            </button>
+          </div>
+
+          {availableSizes.length > 0 && (
+            <div className="products-filter-group">
+              <div className="products-filter-title-row">
+                <div className="products-filter-title-stack">
+                  <h6>Sizes</h6>
+                  <span className="products-filter-muted">
+                    Choose your preferred size
+                  </span>
+                </div>
+
+                {selectedSizes.length > 0 && (
+                  <button
+                    type="button"
+                    className="products-mini-clear"
+                    onClick={() => updateQueryParams({ sizes: [] }, true)}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              <div className="products-size-grid">
+                {availableSizes.map((size) => (
+                  <button
+                    type="button"
+                    key={size}
+                    className={`products-size-btn ${
+                      selectedSizes.includes(size) ? "active" : ""
+                    }`}
+                    onClick={() => toggleSizeFilter(size)}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
-        </div>
 
-        <div className="products-filter-group">
-          <h6>Price Range</h6>
-
-          <div className="products-price-values">
-            <span>${localMinPrice}</span>
-            <span>${localMaxPrice}</span>
-          </div>
-
-          <div className="products-price-inputs">
-            <div className="products-price-field">
-              <label className="products-price-label">Min</label>
-              <input
-                type="number"
-                min={0}
-                max={filtersMeta.max_price || 1000}
-                value={localMinPrice}
-                onChange={(e) => setLocalMinPrice(Number(e.target.value || 0))}
-                className="products-price-input"
-              />
-            </div>
-
-            <div className="products-price-field">
-              <label className="products-price-label">Max</label>
-              <input
-                type="number"
-                min={0}
-                max={filtersMeta.max_price || 1000}
-                value={localMaxPrice}
-                onChange={(e) => setLocalMaxPrice(Number(e.target.value || 0))}
-                className="products-price-input"
-              />
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="products-apply-price-btn"
-            onClick={applyPriceFilter}
-          >
-            Apply Price
-          </button>
-        </div>
-
-        <div className="products-filter-group">
-          <h6>Sizes</h6>
-          <div className="products-size-grid">
-            {filtersMeta.available_sizes.map((size) => (
+          <div className="products-filter-group">
+            <h6>Stock Status</h6>
+            <div className="products-stock-buttons">
               <button
                 type="button"
-                key={size}
-                className={`products-size-btn ${
-                  selectedSizes.includes(size) ? "active" : ""
+                className={`products-stock-btn ${
+                  stockFilter === "in-stock" ? "active" : ""
                 }`}
-                onClick={() => toggleSizeFilter(size)}
+                onClick={() =>
+                  updateQueryParams(
+                    {
+                      stock: stockFilter === "in-stock" ? "" : "in-stock",
+                    },
+                    true
+                  )
+                }
               >
-                {size}
+                In Stock
               </button>
-            ))}
-          </div>
-        </div>
 
-        <div className="products-filter-group">
-          <h6>Stock Status</h6>
-          <div className="products-stock-buttons">
-            <button
-              type="button"
-              className={`products-stock-btn ${
-                stockFilter === "in-stock" ? "active" : ""
-              }`}
-              onClick={() =>
-                updateQueryParams(
-                  {
-                    stock: stockFilter === "in-stock" ? "" : "in-stock",
-                  },
-                  true
-                )
-              }
-            >
-              In Stock
-            </button>
-
-            <button
-              type="button"
-              className={`products-stock-btn ${
-                stockFilter === "sold-out" ? "active" : ""
-              }`}
-              onClick={() =>
-                updateQueryParams(
-                  {
-                    stock: stockFilter === "sold-out" ? "" : "sold-out",
-                  },
-                  true
-                )
-              }
-            >
-              Sold Out
-            </button>
+              <button
+                type="button"
+                className={`products-stock-btn ${
+                  stockFilter === "sold-out" ? "active" : ""
+                }`}
+                onClick={() =>
+                  updateQueryParams(
+                    {
+                      stock: stockFilter === "sold-out" ? "" : "sold-out",
+                    },
+                    true
+                  )
+                }
+              >
+                Sold Out
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const PaginationUI = () => {
     if (!pagination.total_pages || pagination.total_pages <= 1) return null;
@@ -730,9 +1349,7 @@ const Products = () => {
       )}
 
       <div className="row g-4">
-        <div className="col-lg-3 d-none d-lg-block">
-          <FiltersUI />
-        </div>
+        <div className="col-lg-3 d-none d-lg-block">{renderFiltersUI()}</div>
 
         <div className="col-lg-9">
           <div className="row">
@@ -776,9 +1393,7 @@ const Products = () => {
               </button>
             </div>
 
-            <div className="products-mobile-filter-body">
-              <FiltersUI />
-            </div>
+            <div className="products-mobile-filter-body">{renderFiltersUI()}</div>
 
             <div className="products-mobile-filter-footer">
               <button

@@ -4,6 +4,12 @@ import {
   Footer,
   HomeProductsSection,
   HomeCategoriesSection,
+  PromoSplitSection,
+  LimitedOfferSection,
+  WhyChooseUsSection,
+  LookbookSection,
+  TestimonialsSection,
+  NewsletterSection,
 } from "../components";
 import Hero from "../components/Hero";
 
@@ -12,9 +18,9 @@ const Home = () => {
     <>
       <Navbar />
       <Hero />
-
+      <PromoSplitSection />
       <HomeCategoriesSection />
-
+      <LimitedOfferSection />
       <HomeProductsSection
         badge="Featured Collection"
         title="Featured Products"
@@ -30,6 +36,11 @@ const Home = () => {
         featuredOnly={false}
         limit={8}
       />
+
+      <WhyChooseUsSection />
+      <LookbookSection />
+      <TestimonialsSection />
+      <NewsletterSection />
 
       <Footer />
     </>

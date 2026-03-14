@@ -15,8 +15,12 @@ const QuickViewModal = ({
 
   useEffect(() => {
     if (product) {
+      const cleanedSizes = Array.isArray(product.sizes)
+        ? product.sizes.map((size) => String(size || "").trim()).filter(Boolean)
+        : [];
+
       setActiveImage(0);
-      setSelectedSize(product.sizes?.[0] || "");
+      setSelectedSize(cleanedSizes[0] || "");
     }
   }, [product]);
 
@@ -40,130 +44,139 @@ const QuickViewModal = ({
 
   const imageGallery = useMemo(() => {
     if (!product) return [];
+
     if (Array.isArray(product.images) && product.images.length > 0) {
-      return product.images;
+      return product.images.filter(Boolean);
     }
+
     return product.image ? [product.image] : [];
   }, [product]);
+
+  const sizes = useMemo(() => {
+    if (!product?.sizes || !Array.isArray(product.sizes)) return [];
+
+    return product.sizes
+      .map((size) => String(size || "").trim())
+      .filter(Boolean);
+  }, [product]);
+
+  const hasCategory = Boolean(String(product?.category || "").trim());
+  const hasDescription = Boolean(String(product?.description || "").trim());
+  const hasOriginalPrice =
+    Number(product?.originalPrice || 0) > Number(product?.price || 0);
+  const hasDiscount = Number(product?.discountPercent || 0) > 0;
+  const hasSizes = sizes.length > 0;
 
   if (!isOpen || !product) return null;
 
   return (
-    <div className="premium-quickview-overlay" onClick={onClose}>
-      <div
-        className="premium-quickview-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          className="premium-quickview-close"
-          onClick={onClose}
-          aria-label="Close quick view"
-        >
+    <div className="quick-view-overlay" onClick={onClose}>
+      <div className="quick-view-modal" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="quick-view-close" onClick={onClose}>
           <i className="fa fa-times"></i>
         </button>
 
-        <div className="premium-quickview-layout">
-          <div className="premium-quickview-gallery">
-            <div className="premium-quickview-main-image-wrap">
-              <img
-                src={imageGallery[activeImage]}
-                alt={product.title}
-                className="premium-quickview-main-image"
-              />
+        <div className="quick-view-grid">
+          <div className="quick-view-gallery">
+            <div className="quick-view-image-wrap">
+              <div className="quick-view-top-badges">
+                {hasDiscount && (
+                  <span className="quick-view-discount">
+                    -{product.discountPercent}%
+                  </span>
+                )}
 
-              <div className="premium-quickview-badges">
-                <span className="premium-quickview-discount">
-                  -{product.discountPercent || 20}%
-                </span>
                 <span
-                  className={`premium-quickview-stock ${
+                  className={`quick-view-stock ${
                     product.inStock === false ? "sold-out" : "in-stock"
                   }`}
                 >
                   {product.inStock === false ? "Sold Out" : "In Stock"}
                 </span>
               </div>
+
+              {imageGallery.length > 0 ? (
+                <img
+                  src={imageGallery[activeImage]}
+                  alt={product.title}
+                  className="img-fluid quick-view-main-image"
+                />
+              ) : (
+                <div className="quick-view-image-placeholder">No Image</div>
+              )}
             </div>
 
             {imageGallery.length > 1 && (
-              <div className="premium-quickview-thumbs">
+              <div className="quick-view-thumbnails">
                 {imageGallery.slice(0, 5).map((img, index) => (
                   <button
                     type="button"
-                    key={`${product.id}-quick-thumb-${index}`}
-                    className={`premium-quickview-thumb ${
-                      activeImage === index ? "active" : ""
-                    }`}
+                    key={`${img}-${index}`}
+                    className={`quick-view-thumb ${activeImage === index ? "active" : ""}`}
                     onClick={() => setActiveImage(index)}
                   >
-                    <img src={img} alt={`quick-thumb-${index + 1}`} />
+                    <img src={img} alt={`${product.title} ${index + 1}`} className="img-fluid" />
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="premium-quickview-content">
-            <div className="premium-quickview-category">
-              {product.category || "Fashion"}
+          <div className="quick-view-content">
+            {hasCategory && <span className="quick-view-category">{product.category}</span>}
+
+            <h2 className="quick-view-title">{product.title}</h2>
+
+            <div className="quick-view-rating">
+              <i className="fa fa-star"></i>
+              <span>{product.rating?.rate || 4.8}</span>
+              <small>({product.rating?.count || 120} reviews)</small>
             </div>
 
-            <h2 className="premium-quickview-title">{product.title}</h2>
-
-            <div className="premium-quickview-rating">
-              <span className="premium-quickview-rating-chip">
-                <i className="fa fa-star"></i>
-                {product.rating?.rate || 4.8}
-              </span>
-              <span className="premium-quickview-rating-count">
-                ({product.rating?.count || 120} reviews)
-              </span>
-            </div>
-
-            <div className="premium-quickview-price-row">
-              <span className="premium-quickview-sale-price">
+            <div className="quick-view-price">
+              <span className="quick-view-sale-price">
                 ${Number(product.price || 0).toFixed(2)}
               </span>
-              <span className="premium-quickview-original-price">
-                ${Number(product.originalPrice || 0).toFixed(2)}
-              </span>
+
+              {hasOriginalPrice && (
+                <span className="quick-view-original-price">
+                  ${Number(product.originalPrice || 0).toFixed(2)}
+                </span>
+              )}
             </div>
 
-            <p className="premium-quickview-description">
-              {product.description}
-            </p>
+            {hasDescription && (
+              <p className="quick-view-description">{product.description}</p>
+            )}
 
-            <div className="premium-quickview-size-block">
-              <div className="premium-quickview-size-head">
-                <span>Select Size</span>
-                {selectedSize && (
-                  <span className="premium-quickview-selected-size">
-                    {selectedSize}
-                  </span>
-                )}
+            {hasSizes && (
+              <div className="quick-view-size-block">
+                <div className="quick-view-size-head">
+                  <span>Select Size</span>
+                  {selectedSize && <span className="quick-view-selected-size">{selectedSize}</span>}
+                </div>
+
+                <div className="quick-view-sizes">
+                  {sizes.map((size) => (
+                    <button
+                      type="button"
+                      key={size}
+                      className={`quick-view-size-btn ${
+                        selectedSize === size ? "active" : ""
+                      }`}
+                      onClick={() => setSelectedSize(size)}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
 
-              <div className="premium-quickview-size-list">
-                {(product.sizes || []).map((size) => (
-                  <button
-                    type="button"
-                    key={`${product.id}-${size}`}
-                    className={`premium-quickview-size-btn ${
-                      selectedSize === size ? "active" : ""
-                    }`}
-                    onClick={() => setSelectedSize(size)}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="premium-quickview-actions">
+            <div className="quick-view-actions">
               <button
                 type="button"
-                className="premium-quickview-cart-btn"
+                className="quick-view-cart-btn"
                 onClick={() => onAddToCart(product)}
                 disabled={product.inStock === false}
               >
@@ -173,28 +186,27 @@ const QuickViewModal = ({
 
               <button
                 type="button"
-                className={`premium-quickview-wishlist-btn ${
-                  isWishlisted ? "active" : ""
-                }`}
+                className="quick-view-wishlist-btn"
                 onClick={() => onToggleWishlist(product)}
               >
-                <i className={`fa ${isWishlisted ? "fa-heart" : "fa-heart-o"}`}></i>
+                <i className={isWishlisted ? "fa fa-heart" : "far fa-heart"}></i>
                 <span>{isWishlisted ? "Saved" : "Wishlist"}</span>
               </button>
             </div>
 
-            <div className="premium-quickview-footer-actions">
-              <Link to={`/product/${product.id}`} className="premium-quickview-view-btn">
-                View Full Product
+            <div className="quick-view-footer-actions">
+              <Link to={`/product/${product.id}`} className="quick-view-full-link">
+                <i className="fa fa-eye"></i>
+                <span>View Full Product</span>
               </Link>
 
-              <Link to="/cart" className="premium-quickview-buy-btn">
+              <Link to={`/product/${product.id}`} className="quick-view-buy-link">
                 <i className="fa fa-bolt"></i>
                 <span>Buy Now</span>
               </Link>
             </div>
 
-            <div className="premium-quickview-note">
+            <div className="quick-view-note">
               <i className="fa fa-shield"></i>
               <span>Secure checkout, premium quality, and easy returns.</span>
             </div>
