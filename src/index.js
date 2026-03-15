@@ -2,12 +2,15 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "../node_modules/font-awesome/css/font-awesome.min.css";
 import "../node_modules/bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap/dist/css/bootstrap.min.css";
+import "./admin/scss/style.scss";
 import "./index.css";
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Provider } from "react-redux";
-import store from "./redux/store";
+import { Toaster } from "react-hot-toast";
 
+import store from "./redux/store";
+import ScrollToTop from "./components/ScrollToTop";
 
 import {
   Home,
@@ -23,10 +26,12 @@ import {
   OrderSuccess,
   PageNotFound,
 } from "./pages";
-import ScrollToTop from "./components/ScrollToTop";
-import { Toaster } from "react-hot-toast";
+
+import DefaultLayout from "./admin/layout/DefaultLayout";
+import AdminLogin from "./admin/views/pages/login/Login";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
+
 root.render(
   <BrowserRouter>
     <ScrollToTop>
@@ -43,8 +48,12 @@ root.render(
           <Route path="/register" element={<Register />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order-success" element={<OrderSuccess />} />
-          <Route path="*" element={<PageNotFound />} />
+
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/*" element={<DefaultLayout />} />
+
           <Route path="/product/*" element={<PageNotFound />} />
+          <Route path="*" element={<PageNotFound />} />
         </Routes>
       </Provider>
     </ScrollToTop>
