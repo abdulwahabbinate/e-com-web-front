@@ -8,14 +8,14 @@ export const categoryService = {
   },
 
   createCategory: async (payload) => {
-    return http.post(`${ADMIN_API_BASE_URL}/categories`, payload)
+    return http.post(`${ADMIN_API_BASE_URL}/categories/create`, payload)
   },
 
   updateCategory: async (id, payload) => {
-    return http.put(`${ADMIN_API_BASE_URL}/categories/${id}`, payload)
+    return http.put(`${ADMIN_API_BASE_URL}/categories/update/${id}`, payload)
   },
 
   deleteCategory: async (id) => {
-    return http.delete(`${ADMIN_API_BASE_URL}/categories/${id}`)
+    return http.delete(`${ADMIN_API_BASE_URL}/categories/delete/${id}`)
   },
 }

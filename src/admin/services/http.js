@@ -1,17 +1,19 @@
-const getHeaders = () => {
+const getHeaders = (isFormData = false) => {
   const token = localStorage.getItem('admin_token')
 
   return {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 }
 
 const parseResponse = async (response) => {
-  const data = await response.json()
+  const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(data?.message || 'Request failed')
+    const error = new Error(data?.message || 'Request failed')
+    error.response = data
+    throw error
   }
 
   return data
@@ -27,20 +29,26 @@ export const http = {
   },
 
   post: async (url, body) => {
+    const isFormData = body instanceof FormData
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(body),
+      headers: getHeaders(isFormData),
+      body: isFormData ? body : JSON.stringify(body),
     })
+
     return parseResponse(response)
   },
 
   put: async (url, body) => {
+    const isFormData = body instanceof FormData
+
     const response = await fetch(url, {
       method: 'PUT',
-      headers: getHeaders(),
-      body: JSON.stringify(body),
+      headers: getHeaders(isFormData),
+      body: isFormData ? body : JSON.stringify(body),
     })
+
     return parseResponse(response)
   },
 

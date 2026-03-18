@@ -1,50 +1,56 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { CBreadcrumb, CBreadcrumbItem } from '@coreui/react'
+import { CBreadcrumb, CBreadcrumbItem, CContainer } from '@coreui/react'
 import routes from '../routes'
 
+const getRouteName = (pathname, routes) => {
+  const currentRoute = routes.find((route) => route.path === pathname)
+  return currentRoute ? currentRoute.name : false
+}
+
+const getBreadcrumbs = (location, routes) => {
+  const breadcrumbs = []
+  location.pathname.split('/').reduce((prev, curr, index, array) => {
+    const currentPath = `${prev}/${curr}`
+    const routeName = getRouteName(currentPath, routes)
+
+    if (routeName) {
+      breadcrumbs.push({
+        pathname: currentPath,
+        name: routeName,
+        active: index + 1 === array.length,
+      })
+    }
+    return currentPath
+  })
+
+  return breadcrumbs
+}
+
 const AppBreadcrumb = () => {
-  const currentLocation = useLocation().pathname
-
-  const getRouteName = (pathname, routes) => {
-    const currentRoute = routes.find((route) => route.path === pathname)
-    return currentRoute ? currentRoute.name : false
-  }
-
-  const getBreadcrumbs = (location) => {
-    const breadcrumbs = []
-    location.split('/').reduce((prev, curr, index, array) => {
-      const currentPathname = `${prev}/${curr}`
-      const routeName = getRouteName(currentPathname, routes)
-
-      if (routeName) {
-        breadcrumbs.push({
-          pathname: currentPathname,
-          name: routeName,
-          active: index + 1 === array.length,
-        })
-      }
-      return currentPathname
-    })
-    return breadcrumbs
-  }
-
-  const breadcrumbs = getBreadcrumbs(currentLocation)
+  const currentLocation = useLocation()
+  const breadcrumbs = getBreadcrumbs(currentLocation, routes)
 
   return (
-    <CBreadcrumb className="my-0">
-      <CBreadcrumbItem>
-        <Link to="/admin/dashboard">Home</Link>
-      </CBreadcrumbItem>
-
-      {breadcrumbs.map((breadcrumb, index) => (
-        <CBreadcrumbItem key={index} active={breadcrumb.active}>
-          {breadcrumb.active ? breadcrumb.name : (
-            <Link to={breadcrumb.pathname}>{breadcrumb.name}</Link>
-          )}
+    <CContainer fluid className="px-0">
+      <CBreadcrumb className="m-0 admin-premium-breadcrumb">
+        <CBreadcrumbItem>
+          <Link to="/admin/dashboard">Home</Link>
         </CBreadcrumbItem>
-      ))}
-    </CBreadcrumb>
+
+        {breadcrumbs.map((breadcrumb, index) =>
+          breadcrumb.active ? (
+            <CBreadcrumbItem active key={index}>
+              {breadcrumb.name}
+            </CBreadcrumbItem>
+          ) : (
+            <CBreadcrumbItem key={index}>
+              <Link to={breadcrumb.pathname}>{breadcrumb.name}</Link>
+            </CBreadcrumbItem>
+          ),
+        )}
+      </CBreadcrumb>
+    </CContainer>
   )
 }
 

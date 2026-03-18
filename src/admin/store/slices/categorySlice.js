@@ -1,6 +1,14 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import { categoryService } from '../../services/categoryService'
 
+const getErrorPayload = (error, fallbackMessage) => {
+  return (
+    error?.response || {
+      message: error?.message || fallbackMessage,
+    }
+  )
+}
+
 export const fetchCategories = createAsyncThunk(
   'categories/fetchCategories',
   async (_, thunkAPI) => {
@@ -8,7 +16,9 @@ export const fetchCategories = createAsyncThunk(
       const response = await categoryService.getCategories()
       return response
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.message || 'Failed to fetch categories')
+      return thunkAPI.rejectWithValue(
+        getErrorPayload(error, 'Failed to fetch categories')
+      )
     }
   }
 )
@@ -19,7 +29,9 @@ export const createCategory = createAsyncThunk(
     try {
       return await categoryService.createCategory(payload)
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.message || 'Failed to create category')
+      return thunkAPI.rejectWithValue(
+        getErrorPayload(error, 'Failed to create category')
+      )
     }
   }
 )
@@ -30,7 +42,9 @@ export const updateCategory = createAsyncThunk(
     try {
       return await categoryService.updateCategory(id, payload)
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.message || 'Failed to update category')
+      return thunkAPI.rejectWithValue(
+        getErrorPayload(error, 'Failed to update category')
+      )
     }
   }
 )
@@ -42,7 +56,9 @@ export const deleteCategory = createAsyncThunk(
       await categoryService.deleteCategory(id)
       return id
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.message || 'Failed to delete category')
+      return thunkAPI.rejectWithValue(
+        getErrorPayload(error, 'Failed to delete category')
+      )
     }
   }
 )
@@ -53,7 +69,9 @@ export const toggleCategoryStatus = createAsyncThunk(
     try {
       return await categoryService.updateCategory(id, payload)
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.message || 'Failed to update category status')
+      return thunkAPI.rejectWithValue(
+        getErrorPayload(error, 'Failed to update category status')
+      )
     }
   }
 )
@@ -65,7 +83,11 @@ const categorySlice = createSlice({
     loading: false,
     error: null,
   },
-  reducers: {},
+  reducers: {
+    clearCategoryError: (state) => {
+      state.error = null
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchCategories.pending, (state) => {
@@ -80,24 +102,47 @@ const categorySlice = createSlice({
         state.loading = false
         state.error = action.payload
       })
+
+      .addCase(createCategory.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
       .addCase(createCategory.fulfilled, (state, action) => {
+        state.loading = false
         const item = action.payload?.data
         if (item) state.list.unshift(item)
       })
+      .addCase(createCategory.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
+      })
+
+      .addCase(updateCategory.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
       .addCase(updateCategory.fulfilled, (state, action) => {
+        state.loading = false
         const updated = action.payload?.data
         const index = state.list.findIndex((item) => item._id === updated?._id)
         if (index !== -1) state.list[index] = updated
       })
+      .addCase(updateCategory.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
+      })
+
       .addCase(toggleCategoryStatus.fulfilled, (state, action) => {
         const updated = action.payload?.data
         const index = state.list.findIndex((item) => item._id === updated?._id)
         if (index !== -1) state.list[index] = updated
       })
+
       .addCase(deleteCategory.fulfilled, (state, action) => {
         state.list = state.list.filter((item) => item._id !== action.payload)
       })
   },
 })
 
+export const { clearCategoryError } = categorySlice.actions
 export default categorySlice.reducer

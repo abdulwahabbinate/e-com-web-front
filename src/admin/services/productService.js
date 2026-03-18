@@ -8,14 +8,14 @@ export const productService = {
   },
 
   createProduct: async (payload) => {
-    return http.post(`${ADMIN_API_BASE_URL}/products`, payload)
+    return http.post(`${ADMIN_API_BASE_URL}/products/create`, payload)
   },
 
   updateProduct: async (id, payload) => {
-    return http.put(`${ADMIN_API_BASE_URL}/products/${id}`, payload)
+    return http.put(`${ADMIN_API_BASE_URL}/products/update/${id}`, payload)
   },
 
   deleteProduct: async (id) => {
-    return http.delete(`${ADMIN_API_BASE_URL}/products/${id}`)
+    return http.delete(`${ADMIN_API_BASE_URL}/products/delete/${id}`)
   },
 }
