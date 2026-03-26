@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import toast from "react-hot-toast";
 import "./NewsletterSection.css";
 
-const NewsletterSection = () => {
+const NewsletterSection = ({ section }) => {
   const [email, setEmail] = useState("");
 
   const handleSubmit = (e) => {
@@ -22,22 +22,28 @@ const NewsletterSection = () => {
       <div className="container">
         <div className="newsletter-card">
           <div className="newsletter-content">
-            <span className="newsletter-badge">Newsletter</span>
-            <h2>Get Updates On New Arrivals And Exclusive Offers</h2>
+            <span className="newsletter-badge">
+              {section?.badge || "Newsletter"}
+            </span>
+            <h2>
+              {section?.title || "Get Updates On New Arrivals And Exclusive Offers"}
+            </h2>
             <p>
-              Subscribe to stay connected with premium picks, fresh collections,
-              and limited-time deals.
+              {section?.description ||
+                "Subscribe to stay connected with premium picks, fresh collections, and limited-time deals."}
             </p>
           </div>
 
           <form className="newsletter-form" onSubmit={handleSubmit}>
             <input
               type="email"
-              placeholder="Enter your email address"
+              placeholder={section?.placeholder || "Enter your email address"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <button type="submit">Subscribe</button>
+            <button type="submit">
+              {section?.button_text || "Subscribe"}
+            </button>
           </form>
         </div>
       </div>

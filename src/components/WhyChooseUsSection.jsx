@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useMemo } from "react";
 import "./WhyChooseUsSection.css";
 
-const features = [
+const fallbackFeatures = [
   {
     id: 1,
     icon: "fa-truck",
@@ -28,16 +28,44 @@ const features = [
   },
 ];
 
-const WhyChooseUsSection = () => {
+const mapIcon = (icon) => {
+  const iconMap = {
+    cilTruck: "fa-truck",
+    cilLoopCircular: "fa-undo",
+    cilLockLocked: "fa-lock",
+    cilDiamond: "fa-diamond",
+  };
+
+  return iconMap[icon] || icon || "fa-check-circle";
+};
+
+const WhyChooseUsSection = ({ section }) => {
+  const features = useMemo(() => {
+    if (Array.isArray(section?.items) && section.items.length) {
+      return section.items.map((item, index) => ({
+        id: index + 1,
+        icon: mapIcon(item.icon),
+        title: item.title || "",
+        description: item.description || "",
+      }));
+    }
+
+    return fallbackFeatures;
+  }, [section]);
+
   return (
     <section className="why-choose-section">
       <div className="container">
         <div className="why-choose-header text-center">
-          <span className="why-choose-badge">Why Choose Us</span>
-          <h2 className="why-choose-title">Designed For A Better Shopping Experience</h2>
+          <span className="why-choose-badge">
+            {section?.badge || "Why Choose Us"}
+          </span>
+          <h2 className="why-choose-title">
+            {section?.title || "Designed For A Better Shopping Experience"}
+          </h2>
           <p className="why-choose-subtitle">
-            Every detail is crafted to give your store a polished, trustworthy,
-            and premium feel.
+            {section?.description ||
+              "Every detail is crafted to give your store a polished, trustworthy, and premium feel."}
           </p>
         </div>
 

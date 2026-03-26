@@ -1,56 +1,25 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import { Navbar, Footer } from "../components";
+import useContactPageContent from "../hooks/useContactPageContent";
+import { contactMessageService } from "../services/contactMessageService";
 import "./ContactPage.css";
 
-const contactCards = [
-  {
-    id: 1,
-    icon: "fa-map-marker",
-    title: "Our Location",
-    text: "Karachi, Pakistan",
-  },
-  {
-    id: 2,
-    icon: "fa-phone",
-    title: "Call Us",
-    text: "+92 300 1234567",
-  },
-  {
-    id: 3,
-    icon: "fa-envelope-o",
-    title: "Email Support",
-    text: "support@styleecommerce.com",
-  },
-  {
-    id: 4,
-    icon: "fa-clock-o",
-    title: "Working Hours",
-    text: "Mon - Sat / 10:00 AM - 8:00 PM",
-  },
-];
+const mapContactIcon = (icon) => {
+  const iconMap = {
+    cilLocationPin: "fa-map-marker",
+    cilPhone: "fa-phone",
+    cilEnvelopeOpen: "fa-envelope-o",
+    cilClock: "fa-clock-o",
+    cilHeadphones: "fa-headphones",
+  };
 
-const faqs = [
-  {
-    id: 1,
-    question: "How quickly do you respond to support requests?",
-    answer:
-      "We aim to respond to most customer queries within 24 hours during working days.",
-  },
-  {
-    id: 2,
-    question: "Can I ask about orders, returns, or product details here?",
-    answer:
-      "Yes, you can contact us for product questions, delivery updates, returns, and general support.",
-  },
-  {
-    id: 3,
-    question: "Is this form ready for future API integration?",
-    answer:
-      "Yes, the form is built in a clean way so it can easily be connected to your backend later.",
-  },
-];
+  return iconMap[icon] || icon || "fa-circle";
+};
 
 const ContactPage = () => {
+  const { content } = useContactPageContent();
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -58,6 +27,35 @@ const ContactPage = () => {
     subject: "",
     message: "",
   });
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const hero = content?.hero_section || {};
+  const infoSection = content?.info_section || {};
+  const formSection = content?.form_section || {};
+  const faqSection = content?.faq_section || {};
+  const supportCta = content?.support_cta_section || {};
+
+  const contactCards = useMemo(() => {
+    return Array.isArray(infoSection?.items)
+      ? infoSection.items.map((item, index) => ({
+          id: index + 1,
+          icon: mapContactIcon(item.icon),
+          title: item.title || "",
+          text: item.value || "",
+        }))
+      : [];
+  }, [infoSection]);
+
+  const faqs = useMemo(() => {
+    return Array.isArray(faqSection?.items)
+      ? faqSection.items.map((item, index) => ({
+          id: index + 1,
+          question: item.question || "",
+          answer: item.answer || "",
+        }))
+      : [];
+  }, [faqSection]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -68,10 +66,55 @@ const ContactPage = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Contact Form Data:", formData);
-    alert("Contact UI is ready. You can connect API later.");
+
+    if (!formData.fullName.trim()) {
+      toast.error("Please enter your full name");
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      toast.error("Please enter your email");
+      return;
+    }
+
+    if (!formData.message.trim()) {
+      toast.error("Please enter your message");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      await contactMessageService.submitContactMessage({
+        full_name: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        subject: formData.subject,
+        message: formData.message,
+      });
+
+      toast.success("Your message has been sent successfully");
+
+      setFormData({
+        fullName: "",
+        email: "",
+        phone: "",
+        subject: "",
+        message: "",
+      });
+    } catch (error) {
+      const backendErrors = error?.response?.errors || [];
+
+      if (Array.isArray(backendErrors) && backendErrors.length > 0) {
+        toast.error(backendErrors[0]?.message || "Validation failed");
+      } else {
+        toast.error(error?.message || "Failed to send message");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -83,35 +126,43 @@ const ContactPage = () => {
           <div className="container">
             <div className="premium-contact-hero-wrap">
               <div className="premium-contact-hero-content">
-                <span className="premium-contact-badge">Contact Us</span>
+                <span className="premium-contact-badge">
+                  {hero?.badge || "Contact Us"}
+                </span>
+
                 <h1 className="premium-contact-title">
-                  We’re Here To Help You With Every Step Of Your Shopping Experience
+                  {hero?.title ||
+                    "We’re Here To Help You With Every Step Of Your Shopping Experience"}
                 </h1>
+
                 <p className="premium-contact-description">
-                  Whether you want product information, order help, return support,
-                  or general assistance, our team is ready to help you with a fast
-                  and professional response.
+                  {hero?.description ||
+                    "Whether you want product information, order help, return support, or general assistance, our team is ready to help you with a fast and professional response."}
                 </p>
               </div>
 
               <div className="premium-contact-hero-card">
-                <span className="premium-contact-card-label">Customer Support</span>
-                <h4>Fast, Professional, and Reliable Assistance</h4>
+                <span className="premium-contact-card-label">
+                  {hero?.support_badge || "Customer Support"}
+                </span>
+
+                <h4>
+                  {hero?.support_title ||
+                    "Fast, Professional, and Reliable Assistance"}
+                </h4>
+
                 <p>
-                  Reach out to our team for anything related to products, orders,
-                  shipping, or support. We are focused on making your ecommerce
-                  experience smooth and trusted.
+                  {hero?.support_description ||
+                    "Reach out to our team for anything related to products, orders, shipping, or support. We are focused on making your ecommerce experience smooth and trusted."}
                 </p>
 
                 <div className="premium-contact-mini-points">
-                  <div>
-                    <strong>24h</strong>
-                    <span>Typical Response Time</span>
-                  </div>
-                  <div>
-                    <strong>7 Days</strong>
-                    <span>Easy Return Assistance</span>
-                  </div>
+                  {(hero?.support_stats || []).map((item, index) => (
+                    <div key={index}>
+                      <strong>{item.number}</strong>
+                      <span>{item.label}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -142,79 +193,111 @@ const ContactPage = () => {
               <div className="col-lg-7">
                 <div className="premium-contact-form-card">
                   <div className="premium-contact-section-head">
-                    <span className="premium-contact-badge light">Send Message</span>
-                    <h2>Let’s Talk About Your Needs</h2>
+                    <span className="premium-contact-badge light">
+                      {formSection?.badge || "Send Message"}
+                    </span>
+
+                    <h2>{formSection?.title || "Let’s Talk About Your Needs"}</h2>
+
                     <p>
-                      Fill out the form below and send us your message. This form is
-                      UI-ready and can be connected to your backend API later.
+                      {formSection?.description ||
+                        "Fill out the form below and send us your message. This form is UI-ready and can be connected to your backend API later."}
                     </p>
                   </div>
 
                   <form onSubmit={handleSubmit}>
                     <div className="row g-3">
                       <div className="col-md-6">
-                        <label className="premium-contact-label">Full Name</label>
+                        <label className="premium-contact-label">
+                          {formSection?.full_name_label || "Full Name"}
+                        </label>
                         <input
                           type="text"
                           name="fullName"
                           value={formData.fullName}
                           onChange={handleChange}
                           className="premium-contact-input"
-                          placeholder="Enter your full name"
+                          placeholder={
+                            formSection?.full_name_placeholder || "Enter your full name"
+                          }
                         />
                       </div>
 
                       <div className="col-md-6">
-                        <label className="premium-contact-label">Email Address</label>
+                        <label className="premium-contact-label">
+                          {formSection?.email_label || "Email Address"}
+                        </label>
                         <input
                           type="email"
                           name="email"
                           value={formData.email}
                           onChange={handleChange}
                           className="premium-contact-input"
-                          placeholder="Enter your email"
+                          placeholder={
+                            formSection?.email_placeholder || "Enter your email"
+                          }
                         />
                       </div>
 
                       <div className="col-md-6">
-                        <label className="premium-contact-label">Phone Number</label>
+                        <label className="premium-contact-label">
+                          {formSection?.phone_label || "Phone Number"}
+                        </label>
                         <input
                           type="text"
                           name="phone"
                           value={formData.phone}
                           onChange={handleChange}
                           className="premium-contact-input"
-                          placeholder="Enter your phone number"
+                          placeholder={
+                            formSection?.phone_placeholder || "Enter your phone number"
+                          }
                         />
                       </div>
 
                       <div className="col-md-6">
-                        <label className="premium-contact-label">Subject</label>
+                        <label className="premium-contact-label">
+                          {formSection?.subject_label || "Subject"}
+                        </label>
                         <input
                           type="text"
                           name="subject"
                           value={formData.subject}
                           onChange={handleChange}
                           className="premium-contact-input"
-                          placeholder="Enter subject"
+                          placeholder={
+                            formSection?.subject_placeholder || "Enter subject"
+                          }
                         />
                       </div>
 
                       <div className="col-12">
-                        <label className="premium-contact-label">Message</label>
+                        <label className="premium-contact-label">
+                          {formSection?.message_label || "Message"}
+                        </label>
                         <textarea
                           name="message"
                           value={formData.message}
                           onChange={handleChange}
                           className="premium-contact-input premium-contact-textarea"
-                          placeholder="Write your message here..."
+                          placeholder={
+                            formSection?.message_placeholder || "Write your message here..."
+                          }
                         ></textarea>
                       </div>
 
                       <div className="col-12">
-                        <button type="submit" className="premium-contact-submit-btn">
+                        <button
+                          type="submit"
+                          className="premium-contact-submit-btn"
+                          disabled={submitting}
+                        >
                           <i className="fa fa-paper-plane-o"></i>
-                          <span>Send Message</span>
+                          <span>
+                            {submitting
+                              ? "Sending..."
+                              : formSection?.submit_button_text || "Send Message"}
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -225,11 +308,17 @@ const ContactPage = () => {
               <div className="col-lg-5">
                 <div className="premium-contact-side-card">
                   <div className="premium-contact-section-head">
-                    <span className="premium-contact-badge light">Support Info</span>
-                    <h2>Frequently Asked Questions</h2>
+                    <span className="premium-contact-badge light">
+                      {faqSection?.badge || "Support Info"}
+                    </span>
+
+                    <h2>
+                      {faqSection?.title || "Frequently Asked Questions"}
+                    </h2>
+
                     <p>
-                      Here are some quick answers to common customer support
-                      questions.
+                      {faqSection?.description ||
+                        "Here are some quick answers to common customer support questions."}
                     </p>
                   </div>
 
@@ -244,13 +333,13 @@ const ContactPage = () => {
 
                   <div className="premium-contact-help-box">
                     <div className="premium-contact-help-icon">
-                      <i className="fa fa-headphones"></i>
+                      <i className={`fa ${mapContactIcon(supportCta?.icon || "fa-headphones")}`}></i>
                     </div>
                     <div>
-                      <h6>Need immediate help?</h6>
+                      <h6>{supportCta?.title || "Need immediate help?"}</h6>
                       <p>
-                        Contact our support team for quick assistance related to
-                        orders, returns, and product questions.
+                        {supportCta?.description ||
+                          "Contact our support team for quick assistance related to orders, returns, and product questions."}
                       </p>
                     </div>
                   </div>

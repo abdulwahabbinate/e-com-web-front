@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 import "./PromoSplitSection.css";
 
-const promoCards = [
+const fallbackCards = [
   {
     id: 1,
     badge: "New Season",
@@ -29,7 +29,38 @@ const promoCards = [
   },
 ];
 
-const PromoSplitSection = () => {
+const PromoSplitSection = ({ section }) => {
+  const promoCards = useMemo(() => {
+    if (section?.left_card || section?.right_card) {
+      return [
+        {
+          id: 1,
+          badge: section?.left_card?.badge || "New Season",
+          title: section?.left_card?.title || fallbackCards[0].title,
+          description:
+            section?.left_card?.description || fallbackCards[0].description,
+          buttonText: section?.left_card?.button_text || "Shop Collection",
+          buttonLink: section?.left_card?.button_link || "/product",
+          theme: "dark",
+          image: section?.left_card?.image || fallbackCards[0].image,
+        },
+        {
+          id: 2,
+          badge: section?.right_card?.badge || "Wholesale",
+          title: section?.right_card?.title || fallbackCards[1].title,
+          description:
+            section?.right_card?.description || fallbackCards[1].description,
+          buttonText: section?.right_card?.button_text || "Explore Deals",
+          buttonLink: section?.right_card?.button_link || "/product",
+          theme: "light",
+          image: section?.right_card?.image || fallbackCards[1].image,
+        },
+      ];
+    }
+
+    return fallbackCards;
+  }, [section]);
+
   return (
     <section className="promo-split-section">
       <div className="container">

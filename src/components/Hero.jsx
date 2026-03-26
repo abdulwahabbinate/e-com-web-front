@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import "./Hero.css";
 
-const slides = [
+const fallbackSlides = [
   {
     id: 1,
     badge: "New Season",
@@ -14,40 +14,42 @@ const slides = [
     image:
       "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1400&auto=format&fit=crop",
   },
-  {
-    id: 2,
-    badge: "Trending Now",
-    title: "Minimal Looks. Maximum Impact.",
-    description:
-      "Explore handpicked pieces with premium feel, modern cuts, and refined detail.",
-    buttonText: "Explore Collection",
-    buttonLink: "/product",
-    image:
-      "https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=1400&auto=format&fit=crop",
-  },
-  {
-    id: 3,
-    badge: "Exclusive Picks",
-    title: "Curated Essentials For Everyday Style",
-    description:
-      "Shop elevated essentials and seasonal collections designed for comfort and class.",
-    buttonText: "Browse Products",
-    buttonLink: "/product",
-    image:
-      "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1400&auto=format&fit=crop",
-  },
 ];
 
-const Hero = () => {
+const Hero = ({ section }) => {
+  const slides = useMemo(() => {
+    const dbSlides = Array.isArray(section?.slides)
+      ? section.slides
+          .filter((item) => item?.title)
+          .map((item, index) => ({
+            id: index + 1,
+            badge: item.badge || section?.badge || "New Season",
+            title: item.title || "",
+            description: item.description || "",
+            buttonText: item.button_text || "Shop Now",
+            buttonLink: item.button_link || "/product",
+            image: item.image || fallbackSlides[0].image,
+          }))
+      : [];
+
+    return dbSlides.length ? dbSlides : fallbackSlides;
+  }, [section]);
+
   const [activeSlide, setActiveSlide] = useState(0);
 
   useEffect(() => {
+    setActiveSlide(0);
+  }, [slides]);
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
+
     const interval = setInterval(() => {
       setActiveSlide((prev) => (prev + 1) % slides.length);
     }, 4000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [slides]);
 
   const currentSlide = slides[activeSlide];
 
@@ -66,16 +68,18 @@ const Hero = () => {
               </Link>
             </div>
 
-            <div className="premium-hero-dots">
-              {slides.map((slide, index) => (
-                <button
-                  key={slide.id}
-                  type="button"
-                  className={`premium-hero-dot ${index === activeSlide ? "active" : ""}`}
-                  onClick={() => setActiveSlide(index)}
-                />
-              ))}
-            </div>
+            {slides.length > 1 && (
+              <div className="premium-hero-dots">
+                {slides.map((slide, index) => (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    className={`premium-hero-dot ${index === activeSlide ? "active" : ""}`}
+                    onClick={() => setActiveSlide(index)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="premium-hero-image-wrap">
