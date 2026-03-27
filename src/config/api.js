@@ -9,5 +9,9 @@ export const API_ENDPOINTS = {
   categories: `${API_BASE_URL}/categories/all`,
   products: `${API_BASE_URL}/products/all`,
   productById: `${API_BASE_URL}/products`,
+  productsCartItems: `${API_BASE_URL}/products/cart-items`,
   settings: `${API_BASE_URL}/settings`,
+  publicPaymentSettings: `${API_BASE_URL}/payment-settings/default`,
+  createOrder: `${API_BASE_URL}/orders/create`,
+  createStripePaymentIntent: `${API_BASE_URL}/stripe/create-payment-intent`,
 };

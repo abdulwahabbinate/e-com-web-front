@@ -1,18 +1,23 @@
-// For Add Item to Cart
-export const addCart = (product) =>{
-    return {
-        type:"ADDITEM",
-        payload:product
-    }
-}
+export const addCart = (product) => {
+  return {
+    type: "ADDITEM",
+    payload: product,
+  };
+};
 
-// For Delete Item to Cart
-export const delCart = (product) =>{
-    return {
-        type:"DELITEM",
-        payload:product
-    }
-}
+export const delCart = (product) => {
+  return {
+    type: "DELITEM",
+    payload: product,
+  };
+};
+
+export const replaceCart = (items) => {
+  return {
+    type: "REPLACE_CART",
+    payload: items,
+  };
+};
 
 // For Add Item to Wishlist
 export const addWishlist = (product) => {

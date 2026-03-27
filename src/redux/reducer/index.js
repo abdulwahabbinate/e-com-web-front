@@ -7,6 +7,7 @@ import homePageReducer from '../../admin/store/slices/homePageSlice'
 import aboutPageReducer from '../../admin/store/slices/aboutPageSlice'
 import contactPageReducer from '../../admin/store/slices/contactPageSlice'
 import contactMessagesReducer from '../../admin/store/slices/contactMessageSlice'
+import paymentSettingReducer from '../../admin/store/slices/paymentSettingSlice'
 import dashboardReducer from '../../admin/store/slices/dashboardSlice'
 import categoryReducer from '../../admin/store/slices/categorySlice'
 import productReducer from '../../admin/store/slices/productSlice'
@@ -21,6 +22,7 @@ const rootReducers = combineReducers({
   aboutPage: aboutPageReducer,
   contactPage: contactPageReducer,
   contactMessages: contactMessagesReducer,
+  paymentSettings: paymentSettingReducer,
   dashboard: dashboardReducer,
   categories: categoryReducer,
   products: productReducer,

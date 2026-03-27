@@ -29,6 +29,7 @@ const ContactPage = () => {
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const hero = content?.hero_section || {};
   const infoSection = content?.info_section || {};
@@ -57,6 +58,67 @@ const ContactPage = () => {
       : [];
   }, [faqSection]);
 
+  const isValidEmail = (email = "") => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const isValidPhone = (phone = "") => {
+    const sanitizedPhone = String(phone).replace(/[\s\-()+]/g, "");
+    return /^[0-9]{10,15}$/.test(sanitizedPhone);
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = "Full name is required";
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!isValidEmail(formData.email.trim())) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!isValidPhone(formData.phone.trim())) {
+      newErrors.phone = "Please enter a valid phone number";
+    }
+
+    if (!formData.subject.trim()) {
+      newErrors.subject = "Subject is required";
+    }
+
+    if (!formData.message.trim()) {
+      newErrors.message = "Message is required";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const applyBackendValidationErrors = (payload) => {
+    const backendErrors = payload?.errors || [];
+    const mappedErrors = {};
+
+    if (Array.isArray(backendErrors)) {
+      backendErrors.forEach((err) => {
+        if (err?.field === "full_name") mappedErrors.fullName = err.message;
+        if (err?.field === "email") mappedErrors.email = err.message;
+        if (err?.field === "phone") mappedErrors.phone = err.message;
+        if (err?.field === "subject") mappedErrors.subject = err.message;
+        if (err?.field === "message") mappedErrors.message = err.message;
+      });
+    }
+
+    setErrors(mappedErrors);
+
+    if (payload?.message && !backendErrors.length) {
+      toast.error(payload.message);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -64,25 +126,17 @@ const ContactPage = () => {
       ...prev,
       [name]: value,
     }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.fullName.trim()) {
-      toast.error("Please enter your full name");
-      return;
-    }
-
-    if (!formData.email.trim()) {
-      toast.error("Please enter your email");
-      return;
-    }
-
-    if (!formData.message.trim()) {
-      toast.error("Please enter your message");
-      return;
-    }
+    if (!validateForm()) return;
 
     try {
       setSubmitting(true);
@@ -104,12 +158,11 @@ const ContactPage = () => {
         subject: "",
         message: "",
       });
-    } catch (error) {
-      const backendErrors = error?.response?.errors || [];
 
-      if (Array.isArray(backendErrors) && backendErrors.length > 0) {
-        toast.error(backendErrors[0]?.message || "Validation failed");
-      } else {
+      setErrors({});
+    } catch (error) {
+      applyBackendValidationErrors(error?.response || {});
+      if (!error?.response?.errors?.length) {
         toast.error(error?.message || "Failed to send message");
       }
     } finally {
@@ -205,7 +258,7 @@ const ContactPage = () => {
                     </p>
                   </div>
 
-                  <form onSubmit={handleSubmit}>
+                  <form onSubmit={handleSubmit} noValidate>
                     <div className="row g-3">
                       <div className="col-md-6">
                         <label className="premium-contact-label">
@@ -216,11 +269,14 @@ const ContactPage = () => {
                           name="fullName"
                           value={formData.fullName}
                           onChange={handleChange}
-                          className="premium-contact-input"
+                          className={`premium-contact-input ${errors.fullName ? "is-invalid" : ""}`}
                           placeholder={
                             formSection?.full_name_placeholder || "Enter your full name"
                           }
                         />
+                        {errors.fullName && (
+                          <small className="text-danger">{errors.fullName}</small>
+                        )}
                       </div>
 
                       <div className="col-md-6">
@@ -232,11 +288,14 @@ const ContactPage = () => {
                           name="email"
                           value={formData.email}
                           onChange={handleChange}
-                          className="premium-contact-input"
+                          className={`premium-contact-input ${errors.email ? "is-invalid" : ""}`}
                           placeholder={
                             formSection?.email_placeholder || "Enter your email"
                           }
                         />
+                        {errors.email && (
+                          <small className="text-danger">{errors.email}</small>
+                        )}
                       </div>
 
                       <div className="col-md-6">
@@ -248,11 +307,14 @@ const ContactPage = () => {
                           name="phone"
                           value={formData.phone}
                           onChange={handleChange}
-                          className="premium-contact-input"
+                          className={`premium-contact-input ${errors.phone ? "is-invalid" : ""}`}
                           placeholder={
                             formSection?.phone_placeholder || "Enter your phone number"
                           }
                         />
+                        {errors.phone && (
+                          <small className="text-danger">{errors.phone}</small>
+                        )}
                       </div>
 
                       <div className="col-md-6">
@@ -264,11 +326,14 @@ const ContactPage = () => {
                           name="subject"
                           value={formData.subject}
                           onChange={handleChange}
-                          className="premium-contact-input"
+                          className={`premium-contact-input ${errors.subject ? "is-invalid" : ""}`}
                           placeholder={
                             formSection?.subject_placeholder || "Enter subject"
                           }
                         />
+                        {errors.subject && (
+                          <small className="text-danger">{errors.subject}</small>
+                        )}
                       </div>
 
                       <div className="col-12">
@@ -279,11 +344,14 @@ const ContactPage = () => {
                           name="message"
                           value={formData.message}
                           onChange={handleChange}
-                          className="premium-contact-input premium-contact-textarea"
+                          className={`premium-contact-input premium-contact-textarea ${errors.message ? "is-invalid" : ""}`}
                           placeholder={
                             formSection?.message_placeholder || "Write your message here..."
                           }
                         ></textarea>
+                        {errors.message && (
+                          <small className="text-danger">{errors.message}</small>
+                        )}
                       </div>
 
                       <div className="col-12">

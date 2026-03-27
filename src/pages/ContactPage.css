@@ -353,3 +353,8 @@
     padding: 18px;
   }
 }
+
+.premium-contact-input.is-invalid {
+  border-color: #dc3545 !important;
+  box-shadow: none !important;
+}

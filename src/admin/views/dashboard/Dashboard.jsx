@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { Link } from 'react-router-dom'
 import {
   CRow,
   CCol,
@@ -27,10 +28,15 @@ import {
   cilBasket,
   cilPeople,
   cilCart,
+  cilEnvelopeOpen,
+  cilClock,
+  cilCheckCircle,
+  cilDescription,
 } from '@coreui/icons'
 import { fetchDashboard } from '../../store/slices/dashboardSlice'
 import { fetchCategories } from '../../store/slices/categorySlice'
 import { fetchProducts } from '../../store/slices/productSlice'
+import { fetchContactMessages } from '../../store/slices/contactMessageSlice'
 
 const Dashboard = () => {
   const dispatch = useDispatch()
@@ -38,6 +44,7 @@ const Dashboard = () => {
   const { stats, loading } = useSelector((state) => state.dashboard)
   const { list: categories = [] } = useSelector((state) => state.categories)
   const { list: products = [] } = useSelector((state) => state.products)
+  const { list: contactMessages = [] } = useSelector((state) => state.contactMessages)
 
   const [range, setRange] = useState('Month')
 
@@ -45,12 +52,18 @@ const Dashboard = () => {
     dispatch(fetchDashboard())
     dispatch(fetchCategories())
     dispatch(fetchProducts())
+    dispatch(fetchContactMessages())
   }, [dispatch])
 
   const totalCategories = stats?.totalCategories ?? categories.length ?? 0
   const totalProducts = stats?.totalProducts ?? products.length ?? 0
   const totalUsers = stats?.totalUsers ?? 0
   const totalOrders = stats?.totalOrders ?? 0
+
+  const totalMessages = contactMessages.length ?? 0
+  const totalNewMessages = contactMessages.filter((item) => item.status === 'new').length
+  const totalInProgressMessages = contactMessages.filter((item) => item.status === 'in_progress').length
+  const totalResolvedMessages = contactMessages.filter((item) => item.status === 'resolved').length
 
   const recentCategories = useMemo(() => {
     return [...categories]
@@ -63,6 +76,25 @@ const Dashboard = () => {
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 5)
   }, [products])
+
+  const recentContactMessages = useMemo(() => {
+    return [...contactMessages]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 5)
+  }, [contactMessages])
+
+  const getMessageStatusBadge = (status) => {
+    if (status === 'new') return 'danger'
+    if (status === 'in_progress') return 'warning'
+    if (status === 'resolved') return 'success'
+    return 'secondary'
+  }
+
+  const getMessageStatusLabel = (status) => {
+    if (status === 'in_progress') return 'In Progress'
+    if (status === 'resolved') return 'Resolved'
+    return 'New'
+  }
 
   const chartLabels =
     range === 'Day'
@@ -330,9 +362,15 @@ const Dashboard = () => {
       <CRow className="g-4">
         <CCol lg={6}>
           <CCard className="premium-dashboard-card border-0 shadow-sm h-100">
-            <CCardHeader className="premium-dashboard-card-header d-flex align-items-center">
-              <CIcon icon={cilList} className="me-2" />
-              <strong>Recent Categories</strong>
+            <CCardHeader className="premium-dashboard-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div className="d-flex align-items-center">
+                <CIcon icon={cilList} className="me-2" />
+                <strong>Recent Categories</strong>
+              </div>
+
+              <Link to="/admin/categories" className="btn btn-sm btn-outline-primary premium-dashboard-link-btn">
+                View All
+              </Link>
             </CCardHeader>
 
             <CCardBody>
@@ -380,9 +418,15 @@ const Dashboard = () => {
 
         <CCol lg={6}>
           <CCard className="premium-dashboard-card border-0 shadow-sm h-100">
-            <CCardHeader className="premium-dashboard-card-header d-flex align-items-center">
-              <CIcon icon={cilBasket} className="me-2" />
-              <strong>Recent Products</strong>
+            <CCardHeader className="premium-dashboard-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div className="d-flex align-items-center">
+                <CIcon icon={cilBasket} className="me-2" />
+                <strong>Recent Products</strong>
+              </div>
+
+              <Link to="/admin/products" className="btn btn-sm btn-outline-primary premium-dashboard-link-btn">
+                View All
+              </Link>
             </CCardHeader>
 
             <CCardBody>
@@ -419,6 +463,75 @@ const Dashboard = () => {
                     <CTableRow>
                       <CTableDataCell colSpan={3} className="text-center">
                         {loading ? 'Loading...' : 'No products found'}
+                      </CTableDataCell>
+                    </CTableRow>
+                  )}
+                </CTableBody>
+              </CTable>
+            </CCardBody>
+          </CCard>
+        </CCol>
+
+        <CCol lg={12}>
+          <CCard className="premium-dashboard-card border-0 shadow-sm h-100">
+            <CCardHeader className="premium-dashboard-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div className="d-flex align-items-center">
+                <CIcon icon={cilEnvelopeOpen} className="me-2" />
+                <strong>Recent Contact Messages</strong>
+              </div>
+
+              <Link to="/admin/contact-messages" className="btn btn-sm btn-outline-primary premium-dashboard-link-btn">
+                View All
+              </Link>
+            </CCardHeader>
+
+            <CCardBody>
+              <CTable hover responsive className="dashboard-mini-table">
+                <CTableHead>
+                  <CTableRow>
+                    <CTableHeaderCell>Name</CTableHeaderCell>
+                    <CTableHeaderCell>Email</CTableHeaderCell>
+                    <CTableHeaderCell>Subject</CTableHeaderCell>
+                    <CTableHeaderCell>Status</CTableHeaderCell>
+                    <CTableHeaderCell>Date</CTableHeaderCell>
+                  </CTableRow>
+                </CTableHead>
+
+                <CTableBody>
+                  {recentContactMessages.length ? (
+                    recentContactMessages.map((item) => (
+                      <CTableRow key={item._id}>
+                        <CTableDataCell>
+                          <div className="fw-semibold">{item.full_name}</div>
+                          <small className="text-medium-emphasis">{item.phone || '-'}</small>
+                        </CTableDataCell>
+
+                        <CTableDataCell>{item.email}</CTableDataCell>
+
+                        <CTableDataCell>
+                          <div className="fw-semibold">{item.subject || 'No Subject'}</div>
+                          <small className="text-medium-emphasis">
+                            {item.message?.length > 55
+                              ? `${item.message.slice(0, 55)}...`
+                              : item.message}
+                          </small>
+                        </CTableDataCell>
+
+                        <CTableDataCell>
+                          <CBadge color={getMessageStatusBadge(item.status)}>
+                            {getMessageStatusLabel(item.status)}
+                          </CBadge>
+                        </CTableDataCell>
+
+                        <CTableDataCell>
+                          {item.createdAt ? new Date(item.createdAt).toLocaleString() : '-'}
+                        </CTableDataCell>
+                      </CTableRow>
+                    ))
+                  ) : (
+                    <CTableRow>
+                      <CTableDataCell colSpan={5} className="text-center">
+                        {loading ? 'Loading...' : 'No contact messages found'}
                       </CTableDataCell>
                     </CTableRow>
                   )}
@@ -481,6 +594,62 @@ const Dashboard = () => {
               <div className="mt-3">
                 <div className="dashboard-summary-title">Order Trend</div>
                 <div className="dashboard-summary-value">-3.1%</div>
+              </div>
+            </CCardBody>
+          </CCard>
+        </CCol>
+
+        <CCol md={6} xl={3}>
+          <CCard className="dashboard-summary-card border-0 shadow-sm">
+            <CCardBody>
+              <div className="dashboard-summary-icon bg-secondary-subtle text-secondary">
+                <CIcon icon={cilEnvelopeOpen} size="xl" />
+              </div>
+              <div className="mt-3">
+                <div className="dashboard-summary-title">Total Messages</div>
+                <div className="dashboard-summary-value">{totalMessages}</div>
+              </div>
+            </CCardBody>
+          </CCard>
+        </CCol>
+
+        <CCol md={6} xl={3}>
+          <CCard className="dashboard-summary-card border-0 shadow-sm">
+            <CCardBody>
+              <div className="dashboard-summary-icon bg-danger-subtle text-danger">
+                <CIcon icon={cilDescription} size="xl" />
+              </div>
+              <div className="mt-3">
+                <div className="dashboard-summary-title">New Messages</div>
+                <div className="dashboard-summary-value">{totalNewMessages}</div>
+              </div>
+            </CCardBody>
+          </CCard>
+        </CCol>
+
+        <CCol md={6} xl={3}>
+          <CCard className="dashboard-summary-card border-0 shadow-sm">
+            <CCardBody>
+              <div className="dashboard-summary-icon bg-warning-subtle text-warning">
+                <CIcon icon={cilClock} size="xl" />
+              </div>
+              <div className="mt-3">
+                <div className="dashboard-summary-title">In Progress</div>
+                <div className="dashboard-summary-value">{totalInProgressMessages}</div>
+              </div>
+            </CCardBody>
+          </CCard>
+        </CCol>
+
+        <CCol md={6} xl={3}>
+          <CCard className="dashboard-summary-card border-0 shadow-sm">
+            <CCardBody>
+              <div className="dashboard-summary-icon bg-success-subtle text-success">
+                <CIcon icon={cilCheckCircle} size="xl" />
+              </div>
+              <div className="mt-3">
+                <div className="dashboard-summary-title">Resolved</div>
+                <div className="dashboard-summary-value">{totalResolvedMessages}</div>
               </div>
             </CCardBody>
           </CCard>
