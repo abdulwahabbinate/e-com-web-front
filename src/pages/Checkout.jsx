@@ -13,55 +13,63 @@ import { stripePaymentService } from "../services/stripePaymentService";
 import StripePaymentForm from "../components/StripePaymentForm";
 import "./Checkout.css";
 
-// const StripeSubmitHandler = ({ onSuccess, disabled }) => {
-//   const stripe = useStripe();
-//   const elements = useElements();
+const FIELD_MAP = {
+  first_name: "firstName",
+  last_name: "lastName",
+  email: "email",
+  phone: "phone",
+  country: "country",
+  city: "city",
+  address: "address",
+  postal_code: "postalCode",
+  payment_method: "paymentMethod",
+  stripe_payment_intent_id: "paymentMethod",
+};
 
-//   const handleStripePayment = async () => {
-//     if (!stripe || !elements) {
-//       throw new Error("Stripe is still loading");
-//     }
+const mapBackendErrors = (backendErrors = []) => {
+  const mappedErrors = {};
 
-//     const confirmResult = await stripe.confirmPayment({
-//       elements,
-//       redirect: "if_required",
-//     });
+  if (!Array.isArray(backendErrors)) return mappedErrors;
 
-//     if (confirmResult.error) {
-//       throw new Error(confirmResult.error.message || "Payment failed");
-//     }
+  backendErrors.forEach((err) => {
+    const fieldName = FIELD_MAP[err?.field];
+    if (fieldName) {
+      mappedErrors[fieldName] = err.message;
+    }
+  });
 
-//     const paymentIntentId = confirmResult.paymentIntent?.id || "";
+  return mappedErrors;
+};
 
-//     if (!paymentIntentId) {
-//       throw new Error("Payment confirmation failed");
-//     }
-
-//     await onSuccess(paymentIntentId);
-//   };
-
-//   return (
-//     <button
-//       type="button"
-//       className="premium-checkout-place-btn"
-//       onClick={handleStripePayment}
-//       disabled={disabled || !stripe || !elements}
-//     >
-//       <i className="fa fa-check-circle"></i>
-//       <span>{disabled ? "Placing Order..." : "Place Order"}</span>
-//     </button>
-//   );
-// };
-
-const StripeSubmitHandler = ({ onSuccess, disabled }) => {
+const StripeSubmitHandler = ({
+  beforeConfirm,
+  onSuccess,
+  disabled,
+  onFailure,
+}) => {
   const stripe = useStripe();
   const elements = useElements();
+  const [processing, setProcessing] = useState(false);
 
   const handleStripePayment = async () => {
+    if (processing || disabled) return;
+
     try {
+      setProcessing(true);
+
+      const canProceed = await beforeConfirm();
+      if (!canProceed) return;
+
       if (!stripe || !elements) {
-        toast.error("Stripe is still loading");
-        return;
+        throw new Error("Stripe is still loading");
+      }
+
+      const submitResult = await elements.submit();
+
+      if (submitResult?.error) {
+        throw new Error(
+          submitResult.error.message || "Please complete payment details"
+        );
       }
 
       const confirmResult = await stripe.confirmPayment({
@@ -69,21 +77,30 @@ const StripeSubmitHandler = ({ onSuccess, disabled }) => {
         redirect: "if_required",
       });
 
-      if (confirmResult.error) {
-        toast.error(confirmResult.error.message || "Payment failed");
-        return;
+      if (confirmResult?.error) {
+        throw new Error(confirmResult.error.message || "Payment failed");
       }
 
-      const paymentIntentId = confirmResult.paymentIntent?.id || "";
+      const paymentIntent = confirmResult?.paymentIntent;
 
-      if (!paymentIntentId) {
-        toast.error("Payment confirmation failed");
-        return;
+      if (!paymentIntent?.id) {
+        throw new Error("Payment confirmation failed");
       }
 
-      await onSuccess(paymentIntentId);
+      if (paymentIntent.status !== "succeeded") {
+        throw new Error("Payment is not completed yet");
+      }
+
+      await onSuccess(paymentIntent.id);
     } catch (error) {
-      toast.error(error?.message || "Something went wrong while processing payment");
+      toast.error(
+        error?.message || "Something went wrong while processing payment"
+      );
+      if (typeof onFailure === "function") {
+        onFailure(error);
+      }
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -92,15 +109,21 @@ const StripeSubmitHandler = ({ onSuccess, disabled }) => {
       type="button"
       className="premium-checkout-place-btn"
       onClick={handleStripePayment}
-      disabled={disabled || !stripe || !elements}
+      disabled={disabled || processing || !stripe || !elements}
     >
       <i className="fa fa-check-circle"></i>
-      <span>{disabled ? "Placing Order..." : "Place Order"}</span>
+      <span>{disabled || processing ? "Placing Order..." : "Place Order"}</span>
     </button>
   );
 };
 
-const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
+const CheckoutInner = ({
+  paymentSettings,
+  clientSecret,
+  hasStripeContext,
+  cardPaymentReady,
+  stripeErrorMessage,
+}) => {
   const cartItems = useSelector((state) => state.handleCart);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -121,13 +144,30 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
   });
 
   useEffect(() => {
-    if (!paymentSettings.cash_on_delivery_enabled && formData.paymentMethod === "cod") {
+    if (
+      !paymentSettings.cash_on_delivery_enabled &&
+      formData.paymentMethod === "cod"
+    ) {
       setFormData((prev) => ({
         ...prev,
         paymentMethod: "card",
       }));
     }
-  }, [paymentSettings.cash_on_delivery_enabled, formData.paymentMethod]);
+
+    if (
+      !paymentSettings.card_payment_enabled &&
+      formData.paymentMethod === "card"
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        paymentMethod: paymentSettings.cash_on_delivery_enabled ? "cod" : "",
+      }));
+    }
+  }, [
+    paymentSettings.cash_on_delivery_enabled,
+    paymentSettings.card_payment_enabled,
+    formData.paymentMethod,
+  ]);
 
   const shipping = useMemo(() => {
     return cartItems.length > 0 ? 15 : 0;
@@ -144,9 +184,7 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
     return cartItems.reduce((total, item) => total + Number(item.qty || 1), 0);
   }, [cartItems]);
 
-  const total = useMemo(() => {
-    return subtotal + shipping;
-  }, [subtotal, shipping]);
+  const total = useMemo(() => subtotal + shipping, [subtotal, shipping]);
 
   const isValidEmail = (email = "") => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -192,8 +230,9 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
       newErrors.paymentMethod = "Card payment is currently unavailable";
     }
 
-    if (formData.paymentMethod === "card" && !clientSecret) {
-      newErrors.paymentMethod = "Card payment is not ready yet";
+    if (formData.paymentMethod === "card" && !cardPaymentReady) {
+      newErrors.paymentMethod =
+        stripeErrorMessage || "Card payment is not ready yet";
     }
 
     setErrors(newErrors);
@@ -267,17 +306,40 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
     return { valid: true };
   };
 
+  const beforeConfirmCardPayment = async () => {
+    if (placingOrder) return false;
+
+    try {
+      const valid = validateForm();
+      if (!valid) return false;
+
+      setPlacingOrder(true);
+
+      const syncResult = await syncCartWithLatestStock();
+      if (!syncResult.valid) {
+        setPlacingOrder(false);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      toast.error(error?.message || "Failed to validate checkout");
+      setPlacingOrder(false);
+      return false;
+    }
+  };
+
   const buildOrderPayload = (stripePaymentIntentId = "") => {
     return {
-      first_name: formData.firstName,
-      last_name: formData.lastName,
-      email: formData.email,
-      phone: formData.phone,
-      country: formData.country,
-      city: formData.city,
-      address: formData.address,
-      postal_code: formData.postalCode,
-      notes: formData.notes,
+      first_name: formData.firstName.trim(),
+      last_name: formData.lastName.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      country: formData.country.trim(),
+      city: formData.city.trim(),
+      address: formData.address.trim(),
+      postal_code: formData.postalCode.trim(),
+      notes: formData.notes.trim(),
       payment_method: formData.paymentMethod,
       stripe_payment_intent_id: stripePaymentIntentId,
       items: cartItems.map((item) => ({
@@ -299,11 +361,17 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
         total: result?.data?.total || 0,
         paymentStatus: result?.data?.payment_status || "pending",
       },
+      replace: true,
     });
+
+    return result;
   };
 
   const handleCodOrder = async () => {
-    if (!validateForm()) return;
+    if (placingOrder) return;
+
+    const valid = validateForm();
+    if (!valid) return;
 
     try {
       setPlacingOrder(true);
@@ -313,24 +381,7 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
 
       await finalizeOrder("");
     } catch (error) {
-      const backendErrors = error?.response?.errors || [];
-      const mappedErrors = {};
-
-      if (Array.isArray(backendErrors)) {
-        backendErrors.forEach((err) => {
-          if (err?.field === "first_name") mappedErrors.firstName = err.message;
-          if (err?.field === "last_name") mappedErrors.lastName = err.message;
-          if (err?.field === "email") mappedErrors.email = err.message;
-          if (err?.field === "phone") mappedErrors.phone = err.message;
-          if (err?.field === "country") mappedErrors.country = err.message;
-          if (err?.field === "city") mappedErrors.city = err.message;
-          if (err?.field === "address") mappedErrors.address = err.message;
-          if (err?.field === "postal_code") mappedErrors.postalCode = err.message;
-          if (err?.field === "payment_method") mappedErrors.paymentMethod = err.message;
-        });
-      }
-
-      setErrors(mappedErrors);
+      setErrors(mapBackendErrors(error?.response?.errors));
       toast.error(error?.message || "Failed to place order");
     } finally {
       setPlacingOrder(false);
@@ -338,38 +389,17 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
   };
 
   const handleStripeOrder = async (stripePaymentIntentId) => {
-    if (!validateForm()) return;
-
     try {
-      setPlacingOrder(true);
-
-      const syncResult = await syncCartWithLatestStock();
-      if (!syncResult.valid) return;
-
       await finalizeOrder(stripePaymentIntentId);
     } catch (error) {
-      const backendErrors = error?.response?.errors || [];
-      const mappedErrors = {};
-
-      if (Array.isArray(backendErrors)) {
-        backendErrors.forEach((err) => {
-          if (err?.field === "first_name") mappedErrors.firstName = err.message;
-          if (err?.field === "last_name") mappedErrors.lastName = err.message;
-          if (err?.field === "email") mappedErrors.email = err.message;
-          if (err?.field === "phone") mappedErrors.phone = err.message;
-          if (err?.field === "country") mappedErrors.country = err.message;
-          if (err?.field === "city") mappedErrors.city = err.message;
-          if (err?.field === "address") mappedErrors.address = err.message;
-          if (err?.field === "postal_code") mappedErrors.postalCode = err.message;
-          if (err?.field === "payment_method") mappedErrors.paymentMethod = err.message;
-        });
-      }
-
-      setErrors(mappedErrors);
+      setErrors(mapBackendErrors(error?.response?.errors));
       toast.error(error?.message || "Failed to place order");
-    } finally {
       setPlacingOrder(false);
     }
+  };
+
+  const handleStripeFailure = () => {
+    setPlacingOrder(false);
   };
 
   const handleChange = (e) => {
@@ -451,10 +481,14 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                         name="firstName"
                         value={formData.firstName}
                         onChange={handleChange}
-                        className={`premium-field-input ${errors.firstName ? "is-invalid" : ""}`}
+                        className={`premium-field-input ${
+                          errors.firstName ? "is-invalid" : ""
+                        }`}
                         placeholder="Enter first name"
                       />
-                      {errors.firstName && <small className="text-danger">{errors.firstName}</small>}
+                      {errors.firstName && (
+                        <small className="text-danger">{errors.firstName}</small>
+                      )}
                     </div>
 
                     <div className="col-md-6">
@@ -464,10 +498,14 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                         name="lastName"
                         value={formData.lastName}
                         onChange={handleChange}
-                        className={`premium-field-input ${errors.lastName ? "is-invalid" : ""}`}
+                        className={`premium-field-input ${
+                          errors.lastName ? "is-invalid" : ""
+                        }`}
                         placeholder="Enter last name"
                       />
-                      {errors.lastName && <small className="text-danger">{errors.lastName}</small>}
+                      {errors.lastName && (
+                        <small className="text-danger">{errors.lastName}</small>
+                      )}
                     </div>
 
                     <div className="col-md-6">
@@ -477,10 +515,14 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        className={`premium-field-input ${errors.email ? "is-invalid" : ""}`}
+                        className={`premium-field-input ${
+                          errors.email ? "is-invalid" : ""
+                        }`}
                         placeholder="Enter email address"
                       />
-                      {errors.email && <small className="text-danger">{errors.email}</small>}
+                      {errors.email && (
+                        <small className="text-danger">{errors.email}</small>
+                      )}
                     </div>
 
                     <div className="col-md-6">
@@ -490,10 +532,14 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                         name="phone"
                         value={formData.phone}
                         onChange={handleChange}
-                        className={`premium-field-input ${errors.phone ? "is-invalid" : ""}`}
+                        className={`premium-field-input ${
+                          errors.phone ? "is-invalid" : ""
+                        }`}
                         placeholder="Enter phone number"
                       />
-                      {errors.phone && <small className="text-danger">{errors.phone}</small>}
+                      {errors.phone && (
+                        <small className="text-danger">{errors.phone}</small>
+                      )}
                     </div>
 
                     <div className="col-md-6">
@@ -503,10 +549,14 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                         name="country"
                         value={formData.country}
                         onChange={handleChange}
-                        className={`premium-field-input ${errors.country ? "is-invalid" : ""}`}
+                        className={`premium-field-input ${
+                          errors.country ? "is-invalid" : ""
+                        }`}
                         placeholder="Enter country"
                       />
-                      {errors.country && <small className="text-danger">{errors.country}</small>}
+                      {errors.country && (
+                        <small className="text-danger">{errors.country}</small>
+                      )}
                     </div>
 
                     <div className="col-md-6">
@@ -516,10 +566,14 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                         name="city"
                         value={formData.city}
                         onChange={handleChange}
-                        className={`premium-field-input ${errors.city ? "is-invalid" : ""}`}
+                        className={`premium-field-input ${
+                          errors.city ? "is-invalid" : ""
+                        }`}
                         placeholder="Enter city"
                       />
-                      {errors.city && <small className="text-danger">{errors.city}</small>}
+                      {errors.city && (
+                        <small className="text-danger">{errors.city}</small>
+                      )}
                     </div>
 
                     <div className="col-md-8">
@@ -529,10 +583,14 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                         name="address"
                         value={formData.address}
                         onChange={handleChange}
-                        className={`premium-field-input ${errors.address ? "is-invalid" : ""}`}
+                        className={`premium-field-input ${
+                          errors.address ? "is-invalid" : ""
+                        }`}
                         placeholder="Enter street address"
                       />
-                      {errors.address && <small className="text-danger">{errors.address}</small>}
+                      {errors.address && (
+                        <small className="text-danger">{errors.address}</small>
+                      )}
                     </div>
 
                     <div className="col-md-4">
@@ -542,10 +600,14 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                         name="postalCode"
                         value={formData.postalCode}
                         onChange={handleChange}
-                        className={`premium-field-input ${errors.postalCode ? "is-invalid" : ""}`}
+                        className={`premium-field-input ${
+                          errors.postalCode ? "is-invalid" : ""
+                        }`}
                         placeholder="Postal code"
                       />
-                      {errors.postalCode && <small className="text-danger">{errors.postalCode}</small>}
+                      {errors.postalCode && (
+                        <small className="text-danger">{errors.postalCode}</small>
+                      )}
                     </div>
 
                     <div className="col-12">
@@ -585,7 +647,9 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                         <strong>Credit / Debit Card</strong>
                         <span>
                           {paymentSettings.gateway_name
-                            ? `Pay securely with ${paymentSettings.gateway_name}${paymentSettings.sandbox_mode ? " (Sandbox)" : ""}`
+                            ? `Pay securely with ${paymentSettings.gateway_name}${
+                                paymentSettings.sandbox_mode ? " (Sandbox)" : ""
+                              }`
                             : "Fast and secure payment"}
                         </span>
                       </div>
@@ -594,7 +658,9 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                     <label
                       className={`premium-payment-option ${
                         formData.paymentMethod === "cod" ? "active" : ""
-                      } ${!paymentSettings.cash_on_delivery_enabled ? "disabled" : ""}`}
+                      } ${
+                        !paymentSettings.cash_on_delivery_enabled ? "disabled" : ""
+                      }`}
                     >
                       <input
                         type="radio"
@@ -619,7 +685,16 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                     )}
                   </div>
 
-                  {formData.paymentMethod === "card" && hasStripeContext && clientSecret ? (
+                  {formData.paymentMethod === "card" && stripeErrorMessage ? (
+                    <div className="alert alert-danger mt-3 mb-0">
+                      {stripeErrorMessage}
+                    </div>
+                  ) : null}
+
+                  {formData.paymentMethod === "card" &&
+                  hasStripeContext &&
+                  clientSecret &&
+                  cardPaymentReady ? (
                     <StripePaymentForm />
                   ) : null}
                 </div>
@@ -690,10 +765,12 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                 </div>
 
                 {formData.paymentMethod === "card" ? (
-                  hasStripeContext && clientSecret ? (
+                  cardPaymentReady && hasStripeContext ? (
                     <StripeSubmitHandler
+                      beforeConfirm={beforeConfirmCardPayment}
                       onSuccess={handleStripeOrder}
                       disabled={placingOrder}
+                      onFailure={handleStripeFailure}
                     />
                   ) : (
                     <button
@@ -702,7 +779,9 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
                       disabled
                     >
                       <i className="fa fa-check-circle"></i>
-                      <span>Loading Payment...</span>
+                      <span>
+                        {stripeErrorMessage ? "Card Payment Unavailable" : "Loading Payment..."}
+                      </span>
                     </button>
                   )
                 ) : (
@@ -734,6 +813,7 @@ const CheckoutInner = ({ paymentSettings, clientSecret, hasStripeContext }) => {
 
 const Checkout = () => {
   const cartItems = useSelector((state) => state.handleCart);
+
   const [paymentSettings, setPaymentSettings] = useState({
     cash_on_delivery_enabled: false,
     card_payment_enabled: true,
@@ -741,35 +821,110 @@ const Checkout = () => {
     sandbox_mode: true,
     stripe_publishable_key: "",
   });
+
   const [clientSecret, setClientSecret] = useState("");
+  const [stripeInstance, setStripeInstance] = useState(null);
+  const [stripeErrorMessage, setStripeErrorMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const resolvedPublishableKey = useMemo(() => {
+    return String(
+      paymentSettings?.stripe_publishable_key ||
+        process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY ||
+        ""
+    ).trim();
+  }, [paymentSettings]);
+
   useEffect(() => {
+    let isMounted = true;
+
     const setupCheckout = async () => {
       try {
+        setLoading(true);
+        setClientSecret("");
+        setStripeInstance(null);
+        setStripeErrorMessage("");
+
         const settingsResult = await paymentSettingService.getPublicPaymentSettings();
         const settings = settingsResult?.data || {};
+
+        if (!isMounted) return;
+
         setPaymentSettings(settings);
 
-        if (settings.card_payment_enabled && cartItems.length > 0) {
-          const paymentIntentResult = await stripePaymentService.createPaymentIntent({
-            items: cartItems.map((item) => ({
-              product_id: item._id || item.id,
-              qty: Number(item.qty || 1),
-            })),
-          });
+        if (!settings.card_payment_enabled) {
+          return;
+        }
 
-          setClientSecret(paymentIntentResult?.data?.client_secret || "");
+        const publishableKey = String(
+          settings.stripe_publishable_key ||
+            process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY ||
+            ""
+        ).trim();
+
+        if (!publishableKey || !publishableKey.startsWith("pk_")) {
+          throw new Error(
+            "Stripe publishable key is missing or invalid. Please update it from admin payment settings or frontend environment."
+          );
+        }
+
+        const stripe = await loadStripe(publishableKey);
+
+        if (!isMounted) return;
+
+        if (!stripe) {
+          throw new Error("Failed to initialize Stripe.");
+        }
+
+        setStripeInstance(stripe);
+
+        if (cartItems.length > 0) {
+          const paymentIntentResult =
+            await stripePaymentService.createPaymentIntent({
+              items: cartItems.map((item) => ({
+                product_id: item._id || item.id,
+                qty: Number(item.qty || 1),
+              })),
+            });
+
+          if (!isMounted) return;
+
+          const secret = paymentIntentResult?.data?.client_secret || "";
+
+          if (!secret) {
+            throw new Error("Failed to create payment intent.");
+          }
+
+          setClientSecret(secret);
         }
       } catch (error) {
-        toast.error(error?.message || "Failed to initialize checkout");
+        if (!isMounted) return;
+
+        setStripeErrorMessage(
+          error?.message ||
+            "Failed to initialize checkout. Please try again."
+        );
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     setupCheckout();
+
+    return () => {
+      isMounted = false;
+    };
   }, [cartItems]);
+
+  const cardPaymentReady = Boolean(
+    paymentSettings.card_payment_enabled &&
+      resolvedPublishableKey &&
+      stripeInstance &&
+      clientSecret &&
+      !stripeErrorMessage
+  );
 
   if (loading) {
     return (
@@ -781,14 +936,10 @@ const Checkout = () => {
     );
   }
 
-  const stripePromise = paymentSettings?.stripe_publishable_key
-    ? loadStripe(paymentSettings.stripe_publishable_key)
-    : null;
-
-  if (paymentSettings.card_payment_enabled && clientSecret && stripePromise) {
+  if (cardPaymentReady) {
     return (
       <Elements
-        stripe={stripePromise}
+        stripe={stripeInstance}
         options={{
           clientSecret,
           appearance: {
@@ -808,6 +959,8 @@ const Checkout = () => {
           paymentSettings={paymentSettings}
           clientSecret={clientSecret}
           hasStripeContext={true}
+          cardPaymentReady={cardPaymentReady}
+          stripeErrorMessage={stripeErrorMessage}
         />
       </Elements>
     );
@@ -818,6 +971,8 @@ const Checkout = () => {
       paymentSettings={paymentSettings}
       clientSecret={clientSecret}
       hasStripeContext={false}
+      cardPaymentReady={cardPaymentReady}
+      stripeErrorMessage={stripeErrorMessage}
     />
   );
 };

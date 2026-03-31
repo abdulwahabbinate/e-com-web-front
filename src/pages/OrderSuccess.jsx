@@ -6,13 +6,24 @@ import "./OrderSuccess.css";
 const OrderSuccess = () => {
   const location = useLocation();
 
-  const orderNumber = location.state?.orderNumber || "ORD-XXXX-0000";
-  const paymentStatus = location.state?.paymentStatus || "Confirmed";
+  const orderNumber = location.state?.orderNumber || "Order Confirmed";
+  const paymentStatus = location.state?.paymentStatus || "pending";
+  const total = Number(location.state?.total || 0);
   const estimatedDelivery = "3 - 5 Business Days";
+
+  const formattedPaymentStatus =
+    paymentStatus === "paid"
+      ? "Paid"
+      : paymentStatus === "pending"
+      ? "Pending"
+      : paymentStatus === "failed"
+      ? "Failed"
+      : paymentStatus;
 
   return (
     <>
       <Navbar />
+
       <div className="premium-order-success-page">
         <div className="container py-4 py-lg-5">
           <div className="premium-order-success-card">
@@ -27,7 +38,9 @@ const OrderSuccess = () => {
             </h1>
 
             <p className="premium-order-success-subtitle">
-              Your purchase has been confirmed and our team is preparing your items for dispatch.
+              Your purchase has been confirmed and our team is preparing your
+              items for dispatch. A premium shopping experience continues from
+              checkout to delivery.
             </p>
 
             <div className="premium-order-success-info-grid">
@@ -43,8 +56,43 @@ const OrderSuccess = () => {
 
               <div className="premium-order-info-card">
                 <span>Payment Status</span>
-                <strong>{paymentStatus}</strong>
+                <strong>{formattedPaymentStatus}</strong>
               </div>
+
+              <div className="premium-order-info-card">
+                <span>Total Amount</span>
+                <strong>${total.toFixed(2)}</strong>
+              </div>
+            </div>
+
+            <div className="premium-order-timeline">
+              <div className="premium-order-step active">
+                <div className="premium-order-step-dot"></div>
+                <span>Order Placed</span>
+              </div>
+
+              <div className="premium-order-step">
+                <div className="premium-order-step-dot"></div>
+                <span>Processing</span>
+              </div>
+
+              <div className="premium-order-step">
+                <div className="premium-order-step-dot"></div>
+                <span>Shipped</span>
+              </div>
+
+              <div className="premium-order-step">
+                <div className="premium-order-step-dot"></div>
+                <span>Delivered</span>
+              </div>
+            </div>
+
+            <div className="premium-order-success-note">
+              <i className="fa fa-shield"></i>
+              <span>
+                Your order is securely confirmed. A confirmation email has been
+                sent if email delivery is configured successfully.
+              </span>
             </div>
 
             <div className="premium-order-success-actions">
@@ -61,6 +109,7 @@ const OrderSuccess = () => {
           </div>
         </div>
       </div>
+
       <Footer />
     </>
   );

@@ -8,6 +8,7 @@ const AboutPageContent = React.lazy(() => import('./views/about-page/AboutPageCo
 const ContactPageContent = React.lazy(() => import('./views/contact-page/ContactPageContent'))
 const CategoriesList = React.lazy(() => import("./views/categories/CategoriesList"),);
 const ProductsList = React.lazy(() => import("./views/products/ProductsList"));
+const OrdersList = React.lazy(() => import("./views/orders/OrdersList"));
 const ContactMessagesList = React.lazy(() => import('./views/contact-messages/ContactMessagesList'))
 const PaymentSettings = React.lazy(() => import('./views/payment-settings/PaymentSettings'))
 const ContentList = React.lazy(() => import("./views/content/ContentList"));
@@ -20,6 +21,7 @@ const routes = [
   { path: '/contact-page-content', name: 'Contact Page CMS', element: ContactPageContent, },
   { path: "/admin/categories", name: "Categories", element: CategoriesList },
   { path: "/admin/products", name: "Products", element: ProductsList },
+  { path: "/admin/orders", name: "Orders", element: OrdersList },
   { path: '/admin/contact-messages', name: 'Contact Messages', element: ContactMessagesList, },
   { path: '/admin/payment-settings', name: 'Payment Settings', element: PaymentSettings },
   { path: "/admin/content", name: "Content", element: ContentList },

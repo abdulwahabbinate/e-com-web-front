@@ -11,12 +11,12 @@ import paymentSettingReducer from '../../admin/store/slices/paymentSettingSlice'
 import dashboardReducer from '../../admin/store/slices/dashboardSlice'
 import categoryReducer from '../../admin/store/slices/categorySlice'
 import productReducer from '../../admin/store/slices/productSlice'
+import ordersReducer from '../../admin/store/slices/orderSlice'
 import uiReducer from '../../admin/store/slices/uiSlice'
 
 const rootReducers = combineReducers({
   handleCart,
   handleWishlist,
-
   adminAuth: adminAuthReducer,
   homePage: homePageReducer,
   aboutPage: aboutPageReducer,
@@ -26,6 +26,7 @@ const rootReducers = combineReducers({
   dashboard: dashboardReducer,
   categories: categoryReducer,
   products: productReducer,
+  orders: ordersReducer,
   adminUi: uiReducer,
 })
 

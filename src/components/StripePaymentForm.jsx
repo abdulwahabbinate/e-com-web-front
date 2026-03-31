@@ -5,6 +5,7 @@ const StripePaymentForm = () => {
   return (
     <div className="mt-3">
       <PaymentElement
+        id="payment-element"
         options={{
           layout: "tabs",
         }}
