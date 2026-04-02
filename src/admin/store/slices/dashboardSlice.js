@@ -1,14 +1,23 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { dashboardService } from "../../services/dashboardService";
 
+const getErrorPayload = (error, fallbackMessage) => {
+  return (
+    error?.response || {
+      message: error?.message || fallbackMessage,
+    }
+  );
+};
+
 export const fetchDashboard = createAsyncThunk(
   "dashboard/fetchDashboard",
   async (_, thunkAPI) => {
     try {
-      const response = await dashboardService.getDashboard();
-      return response;
+      return await dashboardService.getDashboard();
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.message || "Failed to fetch dashboard");
+      return thunkAPI.rejectWithValue(
+        getErrorPayload(error, "Failed to fetch dashboard")
+      );
     }
   }
 );
@@ -20,7 +29,11 @@ const dashboardSlice = createSlice({
     loading: false,
     error: null,
   },
-  reducers: {},
+  reducers: {
+    clearDashboardError: (state) => {
+      state.error = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchDashboard.pending, (state) => {
@@ -29,7 +42,7 @@ const dashboardSlice = createSlice({
       })
       .addCase(fetchDashboard.fulfilled, (state, action) => {
         state.loading = false;
-        state.stats = action.payload?.data || action.payload;
+        state.stats = action.payload?.data || null;
       })
       .addCase(fetchDashboard.rejected, (state, action) => {
         state.loading = false;
@@ -38,4 +51,5 @@ const dashboardSlice = createSlice({
   },
 });
 
+export const { clearDashboardError } = dashboardSlice.actions;
 export default dashboardSlice.reducer;

@@ -61,16 +61,18 @@ const getResolvedDarkMode = () => {
   if (theme === 'dark') return true
   if (theme === 'light') return false
 
-  return window.matchMedia &&
+  return (
+    window.matchMedia &&
     window.matchMedia('(prefers-color-scheme: dark)').matches
+  )
 }
 
 const getSelectStyles = (isDark = false) => ({
   control: (base, state) => ({
     ...base,
-    minHeight: 46,
-    height: 46,
-    borderRadius: 12,
+    minHeight: 48,
+    height: 48,
+    borderRadius: 14,
     borderColor: state.isFocused
       ? '#8b5cf6'
       : isDark
@@ -80,14 +82,14 @@ const getSelectStyles = (isDark = false) => ({
     boxShadow: state.isFocused
       ? '0 0 0 0.2rem rgba(111, 66, 193, 0.16)'
       : isDark
-      ? '0 4px 14px rgba(0, 0, 0, 0.22)'
-      : '0 4px 14px rgba(15, 23, 42, 0.05)',
+      ? '0 8px 20px rgba(0, 0, 0, 0.2)'
+      : '0 8px 20px rgba(15, 23, 42, 0.06)',
     '&:hover': {
       borderColor: state.isFocused
         ? '#8b5cf6'
         : isDark
         ? 'rgba(255,255,255,0.14)'
-        : '#dbe3f0',
+        : '#cbd5e1',
     },
     transition: 'all 0.25s ease',
     paddingLeft: 4,
@@ -96,7 +98,7 @@ const getSelectStyles = (isDark = false) => ({
   valueContainer: (base) => ({
     ...base,
     padding: '0 10px',
-    height: 46,
+    height: 48,
     display: 'flex',
     alignItems: 'center',
   }),
@@ -108,7 +110,7 @@ const getSelectStyles = (isDark = false) => ({
   singleValue: (base) => ({
     ...base,
     color: isDark ? '#e5e7eb' : '#334155',
-    fontWeight: 500,
+    fontWeight: 600,
   }),
   input: (base) => ({
     ...base,
@@ -136,7 +138,7 @@ const getSelectStyles = (isDark = false) => ({
   menu: (base) => ({
     ...base,
     marginTop: 8,
-    borderRadius: 14,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: isDark ? '#111827' : '#ffffff',
     border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #dbe3f0',
@@ -151,7 +153,7 @@ const getSelectStyles = (isDark = false) => ({
   }),
   option: (base, state) => ({
     ...base,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 4,
     padding: '12px 14px',
     backgroundColor: state.isSelected
@@ -164,7 +166,7 @@ const getSelectStyles = (isDark = false) => ({
         : '#f8fafc'
       : 'transparent',
     color: isDark ? '#e5e7eb' : '#334155',
-    fontWeight: 500,
+    fontWeight: 600,
     cursor: 'pointer',
   }),
 })
@@ -216,6 +218,9 @@ const OrdersList = () => {
     key: 'createdAt',
     direction: 'desc',
   })
+
+  const portalTarget =
+    typeof document !== 'undefined' ? document.body : null
 
   useEffect(() => {
     dispatch(fetchOrders())
@@ -290,6 +295,23 @@ const OrdersList = () => {
     if (method === 'card') return 'Card'
     if (method === 'cod') return 'Cash on Delivery'
     return '-'
+  }
+
+  const formatDateTime = (value) => {
+    if (!value) {
+      return {
+        date: '-',
+        time: '',
+      }
+    }
+
+    const dateObj = new Date(value)
+
+    return {
+      date: dateObj.toLocaleDateString(),
+      time: dateObj.toLocaleTimeString(),
+      full: dateObj.toLocaleString(),
+    }
   }
 
   const getOrderStatusBadge = (status) => {
@@ -385,7 +407,14 @@ const OrdersList = () => {
     })
 
     return data
-  }, [list, search, orderStatusFilter, paymentStatusFilter, paymentMethodFilter, sortConfig])
+  }, [
+    list,
+    search,
+    orderStatusFilter,
+    paymentStatusFilter,
+    paymentMethodFilter,
+    sortConfig,
+  ])
 
   const stats = useMemo(() => {
     const totalOrders = list?.length || 0
@@ -405,9 +434,64 @@ const OrdersList = () => {
   }, [list])
 
   const totalPages = Math.ceil(filteredAndSortedList.length / itemsPerPage) || 1
+
   const paginatedList = filteredAndSortedList.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
+  )
+
+  const hasActiveFilters =
+    search.trim() ||
+    orderStatusFilter !== 'all' ||
+    paymentStatusFilter !== 'all' ||
+    paymentMethodFilter !== 'all'
+
+  const orderStatusOptionsWithoutAll = useMemo(
+    () => orderStatusOptions.filter((item) => item.value !== 'all'),
+    [],
+  )
+
+  const paymentStatusOptionsWithoutAll = useMemo(
+    () => paymentStatusOptions.filter((item) => item.value !== 'all'),
+    [],
+  )
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        title: 'Total Orders',
+        value: stats.totalOrders,
+        caption: 'All recorded orders',
+        icon: cilCart,
+        iconClass: 'bg-primary-subtle text-primary',
+        cardClass: 'orders-kpi-card--indigo',
+      },
+      {
+        title: 'Paid Orders',
+        value: stats.paidOrders,
+        caption: 'Successful payments',
+        icon: cilCreditCard,
+        iconClass: 'bg-success-subtle text-success',
+        cardClass: 'orders-kpi-card--emerald',
+      },
+      {
+        title: 'COD Orders',
+        value: stats.codOrders,
+        caption: 'Cash on delivery',
+        icon: cilDescription,
+        iconClass: 'bg-secondary-subtle text-secondary',
+        cardClass: 'orders-kpi-card--slate',
+      },
+      {
+        title: 'Revenue',
+        value: formatCurrency(stats.totalRevenue),
+        caption: 'Paid total value',
+        icon: cilNotes,
+        iconClass: 'bg-warning-subtle text-warning',
+        cardClass: 'orders-kpi-card--amber',
+      },
+    ],
+    [stats],
   )
 
   const handleOpenViewModal = async (id) => {
@@ -419,6 +503,11 @@ const OrdersList = () => {
       setEditPaymentStatus(order?.payment_status || 'pending')
       setViewVisible(true)
     }
+  }
+
+  const handleCloseModal = () => {
+    setViewVisible(false)
+    dispatch(clearSelectedOrder())
   }
 
   const handleSaveStatuses = async () => {
@@ -447,6 +536,15 @@ const OrdersList = () => {
     }
   }
 
+  const handleResetFilters = () => {
+    setSearch('')
+    setOrderStatusFilter('all')
+    setPaymentStatusFilter('all')
+    setPaymentMethodFilter('all')
+    setItemsPerPage(10)
+    setCurrentPage(1)
+  }
+
   const renderSortIcon = (key) => {
     if (sortConfig.key !== key) {
       return <CIcon icon={cilSwapVertical} className="premium-sort-icon inactive" />
@@ -459,6 +557,16 @@ const OrdersList = () => {
       />
     )
   }
+
+  const renderMethodChip = (method) => (
+    <span
+      className={`orders-method-chip ${
+        method === 'cod' ? 'orders-method-chip--slate' : 'orders-method-chip--indigo'
+      }`}
+    >
+      {formatPaymentMethodLabel(method)}
+    </span>
+  )
 
   const paginationItems = useMemo(() => {
     const pages = []
@@ -477,700 +585,794 @@ const OrdersList = () => {
     return pages
   }, [currentPage, totalPages])
 
+  const modalDate = formatDateTime(selectedItem?.createdAt)
+  const showListLoading = loading && !viewVisible
+  const showModalLoading = loading && viewVisible && !selectedItem
+
   return (
     <>
-      <CRow className="g-3 mb-4">
-        <CCol xs={12} sm={6} xl={3}>
-          <CCard className="dashboard-summary-card shadow-sm border-0 h-100">
-            <CCardBody className="d-flex align-items-center gap-3">
-              <div className="dashboard-summary-icon bg-primary-subtle text-primary">
-                <CIcon icon={cilCart} size="lg" />
-              </div>
-              <div>
-                <div className="dashboard-summary-title">Total Orders</div>
-                <div className="dashboard-summary-value">{stats.totalOrders}</div>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-
-        <CCol xs={12} sm={6} xl={3}>
-          <CCard className="dashboard-summary-card shadow-sm border-0 h-100">
-            <CCardBody className="d-flex align-items-center gap-3">
-              <div className="dashboard-summary-icon bg-success-subtle text-success">
-                <CIcon icon={cilCreditCard} size="lg" />
-              </div>
-              <div>
-                <div className="dashboard-summary-title">Paid Orders</div>
-                <div className="dashboard-summary-value">{stats.paidOrders}</div>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-
-        <CCol xs={12} sm={6} xl={3}>
-          <CCard className="dashboard-summary-card shadow-sm border-0 h-100">
-            <CCardBody className="d-flex align-items-center gap-3">
-              <div className="dashboard-summary-icon bg-secondary-subtle text-secondary">
-                <CIcon icon={cilDescription} size="lg" />
-              </div>
-              <div>
-                <div className="dashboard-summary-title">COD Orders</div>
-                <div className="dashboard-summary-value">{stats.codOrders}</div>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-
-        <CCol xs={12} sm={6} xl={3}>
-          <CCard className="dashboard-summary-card shadow-sm border-0 h-100">
-            <CCardBody className="d-flex align-items-center gap-3">
-              <div className="dashboard-summary-icon bg-warning-subtle text-warning">
-                <CIcon icon={cilNotes} size="lg" />
-              </div>
-              <div>
-                <div className="dashboard-summary-title">Revenue</div>
-                <div className="dashboard-summary-value">{formatCurrency(stats.totalRevenue)}</div>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
-
-      <CCard className="shadow-sm border-0 premium-table-card">
-        <CCardHeader className="d-flex justify-content-between align-items-center premium-card-header flex-wrap gap-3">
-          <div>
-            <strong className="fs-5">Orders</strong>
-            <div className="text-medium-emphasis small">
-              Manage all customer orders and payment statuses
+      <div className="orders-page">
+        <CCard className="orders-hero-card premium-table-card border-0 shadow-sm mb-4">
+          <CCardBody className="orders-hero-card__body">
+            <div className="orders-hero-card__content">
+              <span className="orders-hero-card__eyebrow">Order Operations</span>
+              <h2 className="orders-hero-card__title">Orders Management</h2>
+              <p className="orders-hero-card__subtitle">
+                Track customer purchases, review payment activity, and update order
+                progress from one clean premium workspace.
+              </p>
             </div>
-          </div>
-        </CCardHeader>
 
-        <CCardBody>
-          <CRow className="mb-4 g-3 align-items-center">
-            <CCol xs={12} lg={4}>
-              <CFormInput
-                className="premium-input"
-                placeholder="Search by order no, customer, email, city, phone or product"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setCurrentPage(1)
-                }}
-              />
+            <div className="orders-hero-card__meta">
+              <div className="orders-hero-card__meta-card">
+                <span>Showing</span>
+                <strong>{filteredAndSortedList.length}</strong>
+                <small>filtered results</small>
+              </div>
+              <div className="orders-hero-card__meta-card">
+                <span>Page Size</span>
+                <strong>{itemsPerPage}</strong>
+                <small>items per page</small>
+              </div>
+            </div>
+          </CCardBody>
+        </CCard>
+
+        <CRow className="g-3 mb-4">
+          {summaryCards.map((card) => (
+            <CCol xs={12} sm={6} xl={3} key={card.title}>
+              <CCard className={`orders-kpi-card border-0 h-100 ${card.cardClass}`}>
+                <CCardBody className="orders-kpi-card__body">
+                  <div className={`orders-kpi-card__icon ${card.iconClass}`}>
+                    <CIcon icon={card.icon} size="lg" />
+                  </div>
+
+                  <div className="orders-kpi-card__text">
+                    <div className="orders-kpi-card__label">{card.title}</div>
+                    <div className="orders-kpi-card__value">{card.value}</div>
+                    <div className="orders-kpi-card__caption">{card.caption}</div>
+                  </div>
+                </CCardBody>
+              </CCard>
             </CCol>
+          ))}
+        </CRow>
 
-            <CCol xs={12} sm={6} lg={2}>
-              <Select
-                classNamePrefix="premium-react-select"
-                options={orderStatusOptions}
-                value={orderStatusOptions.find((opt) => opt.value === orderStatusFilter)}
-                onChange={(selected) => {
-                  setOrderStatusFilter(selected?.value || 'all')
-                  setCurrentPage(1)
-                }}
-                isSearchable={false}
-                styles={getSelectStyles(isDark)}
-                menuPortalTarget={document.body}
-              />
-            </CCol>
+        <CCard className="orders-table-card premium-table-card shadow-sm border-0">
+          <CCardHeader className="orders-table-card__header premium-card-header">
+            <div>
+              <div className="orders-table-card__title">Orders</div>
+              <div className="orders-table-card__subtitle">
+                Manage all customer orders and payment statuses
+              </div>
+            </div>
 
-            <CCol xs={12} sm={6} lg={2}>
-              <Select
-                classNamePrefix="premium-react-select"
-                options={paymentStatusOptions}
-                value={paymentStatusOptions.find((opt) => opt.value === paymentStatusFilter)}
-                onChange={(selected) => {
-                  setPaymentStatusFilter(selected?.value || 'all')
-                  setCurrentPage(1)
-                }}
-                isSearchable={false}
-                styles={getSelectStyles(isDark)}
-                menuPortalTarget={document.body}
-              />
-            </CCol>
+            <div className="orders-table-card__header-badge">
+              {filteredAndSortedList.length} result
+              {filteredAndSortedList.length === 1 ? '' : 's'}
+            </div>
+          </CCardHeader>
 
-            <CCol xs={12} sm={6} lg={2}>
-              <Select
-                classNamePrefix="premium-react-select"
-                options={paymentMethodOptions}
-                value={paymentMethodOptions.find((opt) => opt.value === paymentMethodFilter)}
-                onChange={(selected) => {
-                  setPaymentMethodFilter(selected?.value || 'all')
-                  setCurrentPage(1)
-                }}
-                isSearchable={false}
-                styles={getSelectStyles(isDark)}
-                menuPortalTarget={document.body}
-              />
-            </CCol>
+          <CCardBody>
+            <div className="orders-toolbar mb-4">
+              <CRow className="g-3 align-items-end">
+                <CCol xs={12} lg={4}>
+                  <div className="orders-field-group">
+                    <label className="orders-field-label">Search</label>
+                    <CFormInput
+                      className="premium-input orders-search-input"
+                      placeholder="Order no, customer, email, phone, city or product"
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value)
+                        setCurrentPage(1)
+                      }}
+                    />
+                  </div>
+                </CCol>
 
-            <CCol xs={12} sm={6} lg={2}>
-              <div className="premium-per-page-wrap justify-content-start justify-content-lg-end">
-                <span className="premium-per-page-label">Items:</span>
-                <div className="premium-per-page-select">
-                  <Select
-                    classNamePrefix="premium-react-select"
-                    options={perPageOptions}
-                    value={perPageOptions.find((opt) => opt.value === itemsPerPage)}
-                    onChange={(selected) => {
-                      setItemsPerPage(selected?.value || 10)
-                      setCurrentPage(1)
-                    }}
-                    isSearchable={false}
-                    styles={getSelectStyles(isDark)}
-                    menuPortalTarget={document.body}
-                  />
+                <CCol xs={12} sm={6} lg={2}>
+                  <div className="orders-field-group">
+                    <label className="orders-field-label">Order Status</label>
+                    <Select
+                      classNamePrefix="premium-react-select"
+                      options={orderStatusOptions}
+                      value={orderStatusOptions.find((opt) => opt.value === orderStatusFilter)}
+                      onChange={(selected) => {
+                        setOrderStatusFilter(selected?.value || 'all')
+                        setCurrentPage(1)
+                      }}
+                      isSearchable={false}
+                      styles={getSelectStyles(isDark)}
+                      menuPortalTarget={portalTarget}
+                    />
+                  </div>
+                </CCol>
+
+                <CCol xs={12} sm={6} lg={2}>
+                  <div className="orders-field-group">
+                    <label className="orders-field-label">Payment Status</label>
+                    <Select
+                      classNamePrefix="premium-react-select"
+                      options={paymentStatusOptions}
+                      value={paymentStatusOptions.find((opt) => opt.value === paymentStatusFilter)}
+                      onChange={(selected) => {
+                        setPaymentStatusFilter(selected?.value || 'all')
+                        setCurrentPage(1)
+                      }}
+                      isSearchable={false}
+                      styles={getSelectStyles(isDark)}
+                      menuPortalTarget={portalTarget}
+                    />
+                  </div>
+                </CCol>
+
+                <CCol xs={12} sm={6} lg={2}>
+                  <div className="orders-field-group">
+                    <label className="orders-field-label">Payment Method</label>
+                    <Select
+                      classNamePrefix="premium-react-select"
+                      options={paymentMethodOptions}
+                      value={paymentMethodOptions.find((opt) => opt.value === paymentMethodFilter)}
+                      onChange={(selected) => {
+                        setPaymentMethodFilter(selected?.value || 'all')
+                        setCurrentPage(1)
+                      }}
+                      isSearchable={false}
+                      styles={getSelectStyles(isDark)}
+                      menuPortalTarget={portalTarget}
+                    />
+                  </div>
+                </CCol>
+
+                <CCol xs={12} sm={6} lg={2}>
+                  <div className="orders-field-group">
+                    <label className="orders-field-label">Items Per Page</label>
+                    <Select
+                      classNamePrefix="premium-react-select"
+                      options={perPageOptions}
+                      value={perPageOptions.find((opt) => opt.value === itemsPerPage)}
+                      onChange={(selected) => {
+                        setItemsPerPage(selected?.value || 10)
+                        setCurrentPage(1)
+                      }}
+                      isSearchable={false}
+                      styles={getSelectStyles(isDark)}
+                      menuPortalTarget={portalTarget}
+                    />
+                  </div>
+                </CCol>
+              </CRow>
+
+              <div className="orders-toolbar__footer">
+                <div className="orders-toolbar__count">
+                  Showing <strong>{paginatedList.length}</strong> of{' '}
+                  <strong>{filteredAndSortedList.length}</strong> orders
                 </div>
-              </div>
-            </CCol>
-          </CRow>
 
-          <CTable hover responsive align="middle" className="premium-table premium-sortable-table">
-            <CTableHead>
-              <CTableRow>
-                <CTableHeaderCell>#</CTableHeaderCell>
-
-                <CTableHeaderCell
-                  className="premium-sortable-header"
-                  onClick={() => handleSort('order_number')}
-                >
-                  <div className="premium-sortable-header__inner">
-                    <span>Order No</span>
-                    {renderSortIcon('order_number')}
-                  </div>
-                </CTableHeaderCell>
-
-                <CTableHeaderCell
-                  className="premium-sortable-header"
-                  onClick={() => handleSort('customer_name')}
-                >
-                  <div className="premium-sortable-header__inner">
-                    <span>Customer</span>
-                    {renderSortIcon('customer_name')}
-                  </div>
-                </CTableHeaderCell>
-
-                <CTableHeaderCell>Items</CTableHeaderCell>
-
-                <CTableHeaderCell
-                  className="premium-sortable-header"
-                  onClick={() => handleSort('total')}
-                >
-                  <div className="premium-sortable-header__inner">
-                    <span>Total</span>
-                    {renderSortIcon('total')}
-                  </div>
-                </CTableHeaderCell>
-
-                <CTableHeaderCell
-                  className="premium-sortable-header"
-                  onClick={() => handleSort('payment_status')}
-                >
-                  <div className="premium-sortable-header__inner">
-                    <span>Payment</span>
-                    {renderSortIcon('payment_status')}
-                  </div>
-                </CTableHeaderCell>
-
-                <CTableHeaderCell
-                  className="premium-sortable-header"
-                  onClick={() => handleSort('order_status')}
-                >
-                  <div className="premium-sortable-header__inner">
-                    <span>Order Status</span>
-                    {renderSortIcon('order_status')}
-                  </div>
-                </CTableHeaderCell>
-
-                <CTableHeaderCell
-                  className="premium-sortable-header"
-                  onClick={() => handleSort('createdAt')}
-                >
-                  <div className="premium-sortable-header__inner">
-                    <span>Date</span>
-                    {renderSortIcon('createdAt')}
-                  </div>
-                </CTableHeaderCell>
-
-                <CTableHeaderCell className="text-center">Actions</CTableHeaderCell>
-              </CTableRow>
-            </CTableHead>
-
-            <CTableBody>
-              {paginatedList.length ? (
-                paginatedList.map((item, index) => (
-                  <CTableRow key={item._id}>
-                    <CTableDataCell className="fw-semibold">
-                      {(currentPage - 1) * itemsPerPage + index + 1}
-                    </CTableDataCell>
-
-                    <CTableDataCell>
-                      <div className="fw-semibold">{item.order_number}</div>
-                      <small className="text-medium-emphasis">
-                        {formatPaymentMethodLabel(item.payment_method)}
-                      </small>
-                    </CTableDataCell>
-
-                    <CTableDataCell>
-                      <div className="fw-semibold">{getCustomerFullName(item)}</div>
-                      <small className="text-medium-emphasis">{item.customer?.email}</small>
-                    </CTableDataCell>
-
-                    <CTableDataCell>
-                      <div className="fw-semibold">{item.total_items || 0} item(s)</div>
-                      <small className="text-medium-emphasis">
-                        {item.items?.length
-                          ? item.items
-                              .slice(0, 2)
-                              .map((product) => product.title)
-                              .join(', ')
-                          : 'No products'}
-                        {item.items?.length > 2 ? '...' : ''}
-                      </small>
-                    </CTableDataCell>
-
-                    <CTableDataCell>{formatCurrency(item.total)}</CTableDataCell>
-
-                    <CTableDataCell>
-                      <div className="d-flex flex-column gap-1">
-                        <CBadge color={getPaymentStatusBadge(item.payment_status)}>
-                          {formatPaymentStatusLabel(item.payment_status)}
-                        </CBadge>
-                        <small className="text-medium-emphasis">
-                          {formatPaymentMethodLabel(item.payment_method)}
-                        </small>
-                      </div>
-                    </CTableDataCell>
-
-                    <CTableDataCell>
-                      <CBadge color={getOrderStatusBadge(item.order_status)}>
-                        {formatOrderStatusLabel(item.order_status)}
-                      </CBadge>
-                    </CTableDataCell>
-
-                    <CTableDataCell>
-                      {item.createdAt ? new Date(item.createdAt).toLocaleString() : '-'}
-                    </CTableDataCell>
-
-                    <CTableDataCell className="text-center">
-                      <div className="premium-actions-group">
-                        <CButton
-                          color="light"
-                          size="sm"
-                          className="premium-action-btn border"
-                          onClick={() => handleOpenViewModal(item._id)}
-                        >
-                          <CIcon icon={cilZoom} className="me-1" />
-                          View
-                        </CButton>
-                      </div>
-                    </CTableDataCell>
-                  </CTableRow>
-                ))
-              ) : (
-                <CTableRow>
-                  <CTableDataCell colSpan={8} className="text-center py-4">
-                    {loading ? 'Loading...' : 'No orders found'}
-                  </CTableDataCell>
-                </CTableRow>
-              )}
-            </CTableBody>
-          </CTable>
-
-          {totalPages > 1 && (
-            <div className="premium-pagination-wrap">
-              <CPagination className="mb-0 premium-pagination">
-                <CPaginationItem
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(1)}
-                >
-                  «
-                </CPaginationItem>
-
-                <CPaginationItem
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((prev) => prev - 1)}
-                >
-                  ‹
-                </CPaginationItem>
-
-                {paginationItems.map((page) => (
-                  <CPaginationItem
-                    key={page}
-                    active={page === currentPage}
-                    onClick={() => setCurrentPage(page)}
+                {hasActiveFilters ? (
+                  <CButton
+                    color="light"
+                    className="orders-reset-btn"
+                    onClick={handleResetFilters}
                   >
-                    {page}
-                  </CPaginationItem>
-                ))}
-
-                <CPaginationItem
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((prev) => prev + 1)}
-                >
-                  ›
-                </CPaginationItem>
-
-                <CPaginationItem
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(totalPages)}
-                >
-                  »
-                </CPaginationItem>
-              </CPagination>
+                    Reset Filters
+                  </CButton>
+                ) : null}
+              </div>
             </div>
-          )}
-        </CCardBody>
-      </CCard>
+
+            <div className="orders-table-wrap">
+              <CTable
+                hover
+                responsive
+                align="middle"
+                className="premium-table premium-sortable-table orders-table"
+              >
+                <CTableHead>
+                  <CTableRow>
+                    <CTableHeaderCell>#</CTableHeaderCell>
+
+                    <CTableHeaderCell
+                      className="premium-sortable-header"
+                      onClick={() => handleSort('order_number')}
+                    >
+                      <div className="premium-sortable-header__inner">
+                        <span>Order No</span>
+                        {renderSortIcon('order_number')}
+                      </div>
+                    </CTableHeaderCell>
+
+                    <CTableHeaderCell
+                      className="premium-sortable-header"
+                      onClick={() => handleSort('customer_name')}
+                    >
+                      <div className="premium-sortable-header__inner">
+                        <span>Customer</span>
+                        {renderSortIcon('customer_name')}
+                      </div>
+                    </CTableHeaderCell>
+
+                    <CTableHeaderCell>Items</CTableHeaderCell>
+
+                    <CTableHeaderCell
+                      className="premium-sortable-header"
+                      onClick={() => handleSort('total')}
+                    >
+                      <div className="premium-sortable-header__inner">
+                        <span>Total</span>
+                        {renderSortIcon('total')}
+                      </div>
+                    </CTableHeaderCell>
+
+                    <CTableHeaderCell
+                      className="premium-sortable-header"
+                      onClick={() => handleSort('payment_status')}
+                    >
+                      <div className="premium-sortable-header__inner">
+                        <span>Payment</span>
+                        {renderSortIcon('payment_status')}
+                      </div>
+                    </CTableHeaderCell>
+
+                    <CTableHeaderCell
+                      className="premium-sortable-header"
+                      onClick={() => handleSort('order_status')}
+                    >
+                      <div className="premium-sortable-header__inner">
+                        <span>Order Status</span>
+                        {renderSortIcon('order_status')}
+                      </div>
+                    </CTableHeaderCell>
+
+                    <CTableHeaderCell
+                      className="premium-sortable-header"
+                      onClick={() => handleSort('createdAt')}
+                    >
+                      <div className="premium-sortable-header__inner">
+                        <span>Date</span>
+                        {renderSortIcon('createdAt')}
+                      </div>
+                    </CTableHeaderCell>
+
+                    <CTableHeaderCell className="text-center">Actions</CTableHeaderCell>
+                  </CTableRow>
+                </CTableHead>
+
+                <CTableBody>
+                  {paginatedList.length ? (
+                    paginatedList.map((item, index) => {
+                      const createdAt = formatDateTime(item.createdAt)
+
+                      return (
+                        <CTableRow key={item._id}>
+                          <CTableDataCell className="fw-semibold">
+                            {(currentPage - 1) * itemsPerPage + index + 1}
+                          </CTableDataCell>
+
+                          <CTableDataCell>
+                            <div className="orders-cell-title">{item.order_number}</div>
+                            <div className="orders-cell-subtitle">
+                              {renderMethodChip(item.payment_method)}
+                            </div>
+                          </CTableDataCell>
+
+                          <CTableDataCell>
+                            <div className="orders-cell-title">
+                              {getCustomerFullName(item)}
+                            </div>
+                            <div className="orders-customer-meta">
+                              <span>{item.customer?.email || '-'}</span>
+                              <span>{item.customer?.phone || '-'}</span>
+                            </div>
+                          </CTableDataCell>
+
+                          <CTableDataCell>
+                            <div className="orders-cell-title">
+                              {item.total_items || 0} item(s)
+                            </div>
+                            <div className="orders-item-preview">
+                              {item.items?.length
+                                ? item.items
+                                    .slice(0, 2)
+                                    .map((product) => product.title)
+                                    .join(', ')
+                                : 'No products'}
+                              {item.items?.length > 2 ? ' ...' : ''}
+                            </div>
+                          </CTableDataCell>
+
+                          <CTableDataCell>
+                            <div className="orders-cell-title">
+                              {formatCurrency(item.total)}
+                            </div>
+                            <div className="orders-cell-subtitle">
+                              Subtotal {formatCurrency(item.subtotal)}
+                            </div>
+                          </CTableDataCell>
+
+                          <CTableDataCell>
+                            <div className="orders-badge-stack">
+                              <CBadge
+                                color={getPaymentStatusBadge(item.payment_status)}
+                                className="orders-status-badge"
+                              >
+                                {formatPaymentStatusLabel(item.payment_status)}
+                              </CBadge>
+                              <span className="orders-payment-method-text">
+                                {formatPaymentMethodLabel(item.payment_method)}
+                              </span>
+                            </div>
+                          </CTableDataCell>
+
+                          <CTableDataCell>
+                            <CBadge
+                              color={getOrderStatusBadge(item.order_status)}
+                              className="orders-status-badge"
+                            >
+                              {formatOrderStatusLabel(item.order_status)}
+                            </CBadge>
+                          </CTableDataCell>
+
+                          <CTableDataCell>
+                            <div className="orders-date-stack">
+                              <strong>{createdAt.date}</strong>
+                              <span>{createdAt.time}</span>
+                            </div>
+                          </CTableDataCell>
+
+                          <CTableDataCell className="text-center">
+                            <div className="premium-actions-group">
+                              <CButton
+                                color="light"
+                                size="sm"
+                                className="premium-action-btn orders-view-btn border"
+                                onClick={() => handleOpenViewModal(item._id)}
+                              >
+                                <CIcon icon={cilZoom} className="me-1" />
+                                View
+                              </CButton>
+                            </div>
+                          </CTableDataCell>
+                        </CTableRow>
+                      )
+                    })
+                  ) : (
+                    <CTableRow>
+                      <CTableDataCell colSpan={9} className="text-center py-5">
+                        <div className="orders-empty-state">
+                          {showListLoading ? (
+                            <>
+                              <CSpinner size="sm" className="me-2" />
+                              Loading orders...
+                            </>
+                          ) : (
+                            'No orders found'
+                          )}
+                        </div>
+                      </CTableDataCell>
+                    </CTableRow>
+                  )}
+                </CTableBody>
+              </CTable>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="premium-pagination-wrap">
+                <CPagination className="mb-0 premium-pagination">
+                  <CPaginationItem
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(1)}
+                  >
+                    «
+                  </CPaginationItem>
+
+                  <CPaginationItem
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((prev) => prev - 1)}
+                  >
+                    ‹
+                  </CPaginationItem>
+
+                  {paginationItems.map((page) => (
+                    <CPaginationItem
+                      key={page}
+                      active={page === currentPage}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </CPaginationItem>
+                  ))}
+
+                  <CPaginationItem
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                  >
+                    ›
+                  </CPaginationItem>
+
+                  <CPaginationItem
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(totalPages)}
+                  >
+                    »
+                  </CPaginationItem>
+                </CPagination>
+              </div>
+            )}
+          </CCardBody>
+        </CCard>
+      </div>
 
       <CModal
+        className="orders-modal"
         size="xl"
+        alignment="center"
+        scrollable
         visible={viewVisible}
-        onClose={() => {
-          setViewVisible(false)
-          dispatch(clearSelectedOrder())
-        }}
+        onClose={handleCloseModal}
       >
         <CModalHeader>
-          <CModalTitle>Order Details</CModalTitle>
+          <div className="w-100">
+            <CModalTitle>Order Details</CModalTitle>
+            {selectedItem?.order_number ? (
+              <div className="orders-modal__subtitle">
+                Review status, payment, customer details, and ordered products for{' '}
+                <strong>{selectedItem.order_number}</strong>
+              </div>
+            ) : null}
+          </div>
         </CModalHeader>
 
         <CModalBody>
-          {loading && !selectedItem ? (
-            <div className="text-center py-4">
+          {showModalLoading ? (
+            <div className="text-center py-5">
               <CSpinner />
             </div>
           ) : selectedItem ? (
             <>
-              <CRow className="g-3 mb-4">
-                <CCol xs={12} md={6} lg={4}>
-                  <div className="profile-info-block">
-                    <div className="profile-info-label d-flex align-items-center gap-2">
-                      <CIcon icon={cilDescription} />
-                      Order Number
-                    </div>
-                    <div className="profile-info-value">{selectedItem.order_number}</div>
+              <div className="orders-modal-top-grid">
+                <div className="orders-detail-card">
+                  <div className="orders-detail-card__label">
+                    <CIcon icon={cilDescription} className="me-2" />
+                    Order Number
                   </div>
-                </CCol>
-
-                <CCol xs={12} md={6} lg={4}>
-                  <div className="profile-info-block">
-                    <div className="profile-info-label d-flex align-items-center gap-2">
-                      <CIcon icon={cilCreditCard} />
-                      Payment Method
-                    </div>
-                    <div className="profile-info-value">
-                      {formatPaymentMethodLabel(selectedItem.payment_method)}
-                    </div>
+                  <div className="orders-detail-card__value">
+                    {selectedItem.order_number}
                   </div>
-                </CCol>
+                </div>
 
-                <CCol xs={12} md={6} lg={4}>
-                  <div className="profile-info-block">
-                    <div className="profile-info-label">Stripe Payment Intent</div>
-                    <div className="profile-info-value">
-                      {selectedItem.stripe_payment_intent_id || '-'}
-                    </div>
+                <div className="orders-detail-card">
+                  <div className="orders-detail-card__label">
+                    <CIcon icon={cilCreditCard} className="me-2" />
+                    Payment Method
                   </div>
-                </CCol>
-              </CRow>
-
-              <CRow className="g-3 mb-4">
-                <CCol xs={12} md={6}>
-                  <div className="profile-info-block">
-                    <div className="profile-info-label">Order Status</div>
-                    <Select
-                      classNamePrefix="premium-react-select"
-                      options={orderStatusOptions.filter((item) => item.value !== 'all')}
-                      value={orderStatusOptions
-                        .filter((item) => item.value !== 'all')
-                        .find((opt) => opt.value === editOrderStatus)}
-                      onChange={(selected) => {
-                        setEditOrderStatus(selected?.value || 'placed')
-                      }}
-                      isSearchable={false}
-                      styles={getSelectStyles(isDark)}
-                      menuPortalTarget={document.body}
-                    />
+                  <div className="orders-detail-card__value">
+                    {formatPaymentMethodLabel(selectedItem.payment_method)}
                   </div>
-                </CCol>
+                </div>
 
-                <CCol xs={12} md={6}>
-                  <div className="profile-info-block">
-                    <div className="profile-info-label">Payment Status</div>
-                    <Select
-                      classNamePrefix="premium-react-select"
-                      options={paymentStatusOptions.filter((item) => item.value !== 'all')}
-                      value={paymentStatusOptions
-                        .filter((item) => item.value !== 'all')
-                        .find((opt) => opt.value === editPaymentStatus)}
-                      onChange={(selected) => {
-                        setEditPaymentStatus(selected?.value || 'pending')
-                      }}
-                      isSearchable={false}
-                      styles={getSelectStyles(isDark)}
-                      menuPortalTarget={document.body}
-                    />
+                <div className="orders-detail-card">
+                  <div className="orders-detail-card__label">Stripe Payment Intent</div>
+                  <div className="orders-detail-card__value orders-detail-card__value--small">
+                    {selectedItem.stripe_payment_intent_id || '-'}
                   </div>
-                </CCol>
-              </CRow>
-
-              <div className="mb-4">
-                <CButton color="primary" className="premium-main-btn" onClick={handleSaveStatuses}>
-                  Save Status Changes
-                </CButton>
+                </div>
               </div>
 
-              <CRow>
+              <div className="orders-status-panel">
+                <div className="orders-status-panel__header">
+                  <div>
+                    <div className="orders-status-panel__title">Update Status</div>
+                    <div className="orders-status-panel__subtitle">
+                      Change order and payment states without leaving the modal
+                    </div>
+                  </div>
+
+                  <div className="orders-status-panel__live">
+                    <CBadge
+                      color={getOrderStatusBadge(selectedItem.order_status)}
+                      className="orders-status-badge"
+                    >
+                      {formatOrderStatusLabel(selectedItem.order_status)}
+                    </CBadge>
+                    <CBadge
+                      color={getPaymentStatusBadge(selectedItem.payment_status)}
+                      className="orders-status-badge"
+                    >
+                      {formatPaymentStatusLabel(selectedItem.payment_status)}
+                    </CBadge>
+                  </div>
+                </div>
+
+                <CRow className="g-3">
+                  <CCol xs={12} md={6}>
+                    <div className="orders-field-group">
+                      <label className="orders-field-label">Order Status</label>
+                      <Select
+                        classNamePrefix="premium-react-select"
+                        options={orderStatusOptionsWithoutAll}
+                        value={orderStatusOptionsWithoutAll.find(
+                          (opt) => opt.value === editOrderStatus,
+                        )}
+                        onChange={(selected) => {
+                          setEditOrderStatus(selected?.value || 'placed')
+                        }}
+                        isSearchable={false}
+                        styles={getSelectStyles(isDark)}
+                        menuPortalTarget={portalTarget}
+                      />
+                    </div>
+                  </CCol>
+
+                  <CCol xs={12} md={6}>
+                    <div className="orders-field-group">
+                      <label className="orders-field-label">Payment Status</label>
+                      <Select
+                        classNamePrefix="premium-react-select"
+                        options={paymentStatusOptionsWithoutAll}
+                        value={paymentStatusOptionsWithoutAll.find(
+                          (opt) => opt.value === editPaymentStatus,
+                        )}
+                        onChange={(selected) => {
+                          setEditPaymentStatus(selected?.value || 'pending')
+                        }}
+                        isSearchable={false}
+                        styles={getSelectStyles(isDark)}
+                        menuPortalTarget={portalTarget}
+                      />
+                    </div>
+                  </CCol>
+                </CRow>
+
+                <div className="orders-status-panel__actions">
+                  <CButton
+                    color="primary"
+                    className="premium-main-btn"
+                    disabled={loading}
+                    onClick={handleSaveStatuses}
+                  >
+                    {loading ? 'Saving...' : 'Save Status Changes'}
+                  </CButton>
+                </div>
+              </div>
+
+              <CRow className="g-4">
                 <CCol xs={12} lg={6}>
-                  <CCard className="premium-table-card border-0 shadow-sm mb-4">
+                  <CCard className="orders-section-card border-0 shadow-sm h-100">
                     <CCardHeader className="premium-card-header">
                       <strong>Customer Information</strong>
                     </CCardHeader>
+
                     <CCardBody>
-                      <CRow>
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label d-flex align-items-center gap-2">
-                              <CIcon icon={cilUser} />
-                              Full Name
-                            </div>
-                            <div className="profile-info-value">
-                              {getCustomerFullName(selectedItem)}
-                            </div>
+                      <div className="orders-info-grid">
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">
+                            <CIcon icon={cilUser} className="me-2" />
+                            Full Name
                           </div>
-                        </CCol>
+                          <div className="orders-info-card__value">
+                            {getCustomerFullName(selectedItem)}
+                          </div>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label d-flex align-items-center gap-2">
-                              <CIcon icon={cilEnvelopeClosed} />
-                              Email
-                            </div>
-                            <div className="profile-info-value">
-                              {selectedItem.customer?.email || '-'}
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">
+                            <CIcon icon={cilEnvelopeClosed} className="me-2" />
+                            Email
                           </div>
-                        </CCol>
+                          <div className="orders-info-card__value">
+                            {selectedItem.customer?.email || '-'}
+                          </div>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label d-flex align-items-center gap-2">
-                              <CIcon icon={cilPhone} />
-                              Phone
-                            </div>
-                            <div className="profile-info-value">
-                              {selectedItem.customer?.phone || '-'}
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">
+                            <CIcon icon={cilPhone} className="me-2" />
+                            Phone
                           </div>
-                        </CCol>
+                          <div className="orders-info-card__value">
+                            {selectedItem.customer?.phone || '-'}
+                          </div>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Postal Code</div>
-                            <div className="profile-info-value">
-                              {selectedItem.customer?.postal_code || '-'}
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">Postal Code</div>
+                          <div className="orders-info-card__value">
+                            {selectedItem.customer?.postal_code || '-'}
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Country</div>
-                            <div className="profile-info-value">
-                              {selectedItem.customer?.country || '-'}
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">Country</div>
+                          <div className="orders-info-card__value">
+                            {selectedItem.customer?.country || '-'}
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">City</div>
-                            <div className="profile-info-value">
-                              {selectedItem.customer?.city || '-'}
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">City</div>
+                          <div className="orders-info-card__value">
+                            {selectedItem.customer?.city || '-'}
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Address</div>
-                            <div className="profile-info-value">
-                              {selectedItem.customer?.address || '-'}
-                            </div>
+                        <div className="orders-info-card orders-info-card--full">
+                          <div className="orders-info-card__label">Address</div>
+                          <div className="orders-info-card__value">
+                            {selectedItem.customer?.address || '-'}
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12}>
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Customer Notes</div>
-                            <div className="profile-info-value" style={{ whiteSpace: 'pre-wrap' }}>
-                              {selectedItem.customer?.notes || 'No notes added'}
-                            </div>
+                        <div className="orders-info-card orders-info-card--full">
+                          <div className="orders-info-card__label">Customer Notes</div>
+                          <div
+                            className="orders-info-card__value"
+                            style={{ whiteSpace: 'pre-wrap' }}
+                          >
+                            {selectedItem.customer?.notes || 'No notes added'}
                           </div>
-                        </CCol>
-                      </CRow>
+                        </div>
+                      </div>
                     </CCardBody>
                   </CCard>
                 </CCol>
 
                 <CCol xs={12} lg={6}>
-                  <CCard className="premium-table-card border-0 shadow-sm mb-4">
+                  <CCard className="orders-section-card border-0 shadow-sm h-100">
                     <CCardHeader className="premium-card-header">
                       <strong>Order Summary</strong>
                     </CCardHeader>
+
                     <CCardBody>
-                      <CRow>
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Subtotal</div>
-                            <div className="profile-info-value">
-                              {formatCurrency(selectedItem.subtotal)}
-                            </div>
+                      <div className="orders-info-grid">
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">Subtotal</div>
+                          <div className="orders-info-card__value">
+                            {formatCurrency(selectedItem.subtotal)}
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Shipping</div>
-                            <div className="profile-info-value">
-                              {formatCurrency(selectedItem.shipping)}
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">Shipping</div>
+                          <div className="orders-info-card__value">
+                            {formatCurrency(selectedItem.shipping)}
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Total Items</div>
-                            <div className="profile-info-value">
-                              {selectedItem.total_items || 0}
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">Total Items</div>
+                          <div className="orders-info-card__value">
+                            {selectedItem.total_items || 0}
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Grand Total</div>
-                            <div className="profile-info-value">
-                              {formatCurrency(selectedItem.total)}
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">Grand Total</div>
+                          <div className="orders-info-card__value">
+                            {formatCurrency(selectedItem.total)}
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Created At</div>
-                            <div className="profile-info-value">
-                              {selectedItem.createdAt
-                                ? new Date(selectedItem.createdAt).toLocaleString()
-                                : '-'}
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">Created At</div>
+                          <div className="orders-info-card__value">
+                            {selectedItem.createdAt
+                              ? new Date(selectedItem.createdAt).toLocaleString()
+                              : '-'}
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Updated At</div>
-                            <div className="profile-info-value">
-                              {selectedItem.updatedAt
-                                ? new Date(selectedItem.updatedAt).toLocaleString()
-                                : '-'}
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">Updated At</div>
+                          <div className="orders-info-card__value">
+                            {selectedItem.updatedAt
+                              ? new Date(selectedItem.updatedAt).toLocaleString()
+                              : '-'}
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Payment Status</div>
-                            <div className="profile-info-value">
-                              <CBadge color={getPaymentStatusBadge(selectedItem.payment_status)}>
-                                {formatPaymentStatusLabel(selectedItem.payment_status)}
-                              </CBadge>
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">Payment Status</div>
+                          <div className="orders-info-card__value">
+                            <CBadge
+                              color={getPaymentStatusBadge(selectedItem.payment_status)}
+                              className="orders-status-badge"
+                            >
+                              {formatPaymentStatusLabel(selectedItem.payment_status)}
+                            </CBadge>
                           </div>
-                        </CCol>
+                        </div>
 
-                        <CCol xs={12} md={6} className="mb-4">
-                          <div className="profile-info-block">
-                            <div className="profile-info-label">Order Status</div>
-                            <div className="profile-info-value">
-                              <CBadge color={getOrderStatusBadge(selectedItem.order_status)}>
-                                {formatOrderStatusLabel(selectedItem.order_status)}
-                              </CBadge>
-                            </div>
+                        <div className="orders-info-card">
+                          <div className="orders-info-card__label">Order Status</div>
+                          <div className="orders-info-card__value">
+                            <CBadge
+                              color={getOrderStatusBadge(selectedItem.order_status)}
+                              className="orders-status-badge"
+                            >
+                              {formatOrderStatusLabel(selectedItem.order_status)}
+                            </CBadge>
                           </div>
-                        </CCol>
-                      </CRow>
+                        </div>
+                      </div>
                     </CCardBody>
                   </CCard>
                 </CCol>
               </CRow>
 
-              <CCard className="premium-table-card border-0 shadow-sm">
+              <CCard className="orders-section-card border-0 shadow-sm mt-4">
                 <CCardHeader className="premium-card-header">
                   <strong>Ordered Items</strong>
                 </CCardHeader>
 
                 <CCardBody>
-                  <CTable hover responsive align="middle" className="premium-table">
-                    <CTableHead>
-                      <CTableRow>
-                        <CTableHeaderCell>#</CTableHeaderCell>
-                        <CTableHeaderCell>Product</CTableHeaderCell>
-                        <CTableHeaderCell>Image</CTableHeaderCell>
-                        <CTableHeaderCell>Price</CTableHeaderCell>
-                        <CTableHeaderCell>Qty</CTableHeaderCell>
-                        <CTableHeaderCell>Line Total</CTableHeaderCell>
-                      </CTableRow>
-                    </CTableHead>
-
-                    <CTableBody>
-                      {selectedItem.items?.length ? (
-                        selectedItem.items.map((product, index) => (
-                          <CTableRow key={`${product.product_id}-${index}`}>
-                            <CTableDataCell className="fw-semibold">{index + 1}</CTableDataCell>
-                            <CTableDataCell>
-                              <div className="fw-semibold">{product.title}</div>
-                              <small className="text-medium-emphasis">
-                                Product ID: {product.product_id}
-                              </small>
-                            </CTableDataCell>
-
-                            <CTableDataCell>
-                              {product.image ? (
-                                <img
-                                  src={product.image}
-                                  alt={product.title}
-                                  width="54"
-                                  height="54"
-                                  className="rounded object-fit-cover border"
-                                />
-                              ) : (
-                                <div
-                                  className="d-inline-flex align-items-center justify-content-center rounded border text-medium-emphasis"
-                                  style={{ width: 54, height: 54 }}
-                                >
-                                  N/A
-                                </div>
-                              )}
-                            </CTableDataCell>
-
-                            <CTableDataCell>{formatCurrency(product.price)}</CTableDataCell>
-                            <CTableDataCell>{product.qty}</CTableDataCell>
-                            <CTableDataCell>{formatCurrency(product.line_total)}</CTableDataCell>
-                          </CTableRow>
-                        ))
-                      ) : (
+                  <div className="orders-table-wrap">
+                    <CTable
+                      hover
+                      responsive
+                      align="middle"
+                      className="premium-table orders-table"
+                    >
+                      <CTableHead>
                         <CTableRow>
-                          <CTableDataCell colSpan={6} className="text-center py-4">
-                            No order items found
-                          </CTableDataCell>
+                          <CTableHeaderCell>#</CTableHeaderCell>
+                          <CTableHeaderCell>Product</CTableHeaderCell>
+                          <CTableHeaderCell>Image</CTableHeaderCell>
+                          <CTableHeaderCell>Price</CTableHeaderCell>
+                          <CTableHeaderCell>Qty</CTableHeaderCell>
+                          <CTableHeaderCell>Line Total</CTableHeaderCell>
                         </CTableRow>
-                      )}
-                    </CTableBody>
-                  </CTable>
+                      </CTableHead>
+
+                      <CTableBody>
+                        {selectedItem.items?.length ? (
+                          selectedItem.items.map((product, index) => (
+                            <CTableRow key={`${product.product_id}-${index}`}>
+                              <CTableDataCell className="fw-semibold">
+                                {index + 1}
+                              </CTableDataCell>
+
+                              <CTableDataCell>
+                                <div className="orders-cell-title">{product.title}</div>
+                                <div className="orders-cell-subtitle">
+                                  Product ID: {product.product_id}
+                                </div>
+                              </CTableDataCell>
+
+                              <CTableDataCell>
+                                {product.image ? (
+                                  <img
+                                    src={product.image}
+                                    alt={product.title}
+                                    className="orders-item-thumb"
+                                  />
+                                ) : (
+                                  <div className="orders-item-thumb orders-item-thumb--empty">
+                                    N/A
+                                  </div>
+                                )}
+                              </CTableDataCell>
+
+                              <CTableDataCell>
+                                {formatCurrency(product.price)}
+                              </CTableDataCell>
+                              <CTableDataCell>{product.qty}</CTableDataCell>
+                              <CTableDataCell>
+                                {formatCurrency(product.line_total)}
+                              </CTableDataCell>
+                            </CTableRow>
+                          ))
+                        ) : (
+                          <CTableRow>
+                            <CTableDataCell colSpan={6} className="text-center py-4">
+                              <div className="orders-empty-state">No order items found</div>
+                            </CTableDataCell>
+                          </CTableRow>
+                        )}
+                      </CTableBody>
+                    </CTable>
+                  </div>
                 </CCardBody>
               </CCard>
             </>
@@ -1178,13 +1380,7 @@ const OrdersList = () => {
         </CModalBody>
 
         <CModalFooter>
-          <CButton
-            color="secondary"
-            onClick={() => {
-              setViewVisible(false)
-              dispatch(clearSelectedOrder())
-            }}
-          >
+          <CButton color="secondary" onClick={handleCloseModal}>
             Close
           </CButton>
         </CModalFooter>
