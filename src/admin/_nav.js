@@ -80,7 +80,12 @@ const navigation = [
     to: "/admin/contact-messages",
     icon: <CIcon icon={cilEnvelopeOpen} customClassName="nav-icon" />,
   },
-
+  {
+    component: CNavItem,
+    name: "Newsletter Subscribers",
+    to: "/admin/newsletter-subscribers",
+    icon: <CIcon icon={cilEnvelopeOpen} customClassName="nav-icon" />,
+  },
   {
     component: CNavTitle,
     name: "Configuration",

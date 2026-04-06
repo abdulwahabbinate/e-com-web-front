@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import "./Footer.css";
+import useNewsletterSubscribe from "../hooks/useNewsletterSubscribe";
 
 const footerLinks = {
   shop: [
@@ -24,6 +25,14 @@ const footerLinks = {
 };
 
 const Footer = () => {
+  const { email, setEmail, loading, handleSubscribe } =
+    useNewsletterSubscribe("footer");
+
+  const handleFooterSubmit = async (e) => {
+    e.preventDefault();
+    await handleSubscribe();
+  };
+
   return (
     <footer className="premium-footer">
       <div className="container">
@@ -43,14 +52,31 @@ const Footer = () => {
 
             <div className="premium-footer-newsletter">
               <h6>Join Our Newsletter</h6>
-              <form className="premium-footer-form">
+
+              <form
+                className="premium-footer-form"
+                onSubmit={handleFooterSubmit}
+                noValidate
+              >
                 <input
-                  type="email"
+                  type="text"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   placeholder="Enter your email"
                   className="premium-footer-input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
                 />
-                <button type="button" className="premium-footer-submit">
-                  Subscribe
+
+                <button
+                  type="submit"
+                  className="premium-footer-submit"
+                  disabled={loading}
+                >
+                  {loading ? "Subscribing..." : "Subscribe"}
                 </button>
               </form>
             </div>

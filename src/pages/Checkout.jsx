@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { Navbar, Footer } from "../components";
@@ -41,6 +42,71 @@ const mapBackendErrors = (backendErrors = []) => {
   return mappedErrors;
 };
 
+const escapeHtml = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const buildFailureHtml = (message, data) => {
+  const failedRecipients = Array.isArray(data?.failed_recipients)
+    ? data.failed_recipients
+    : [];
+
+  if (!failedRecipients.length) {
+    return `<div style="line-height:1.75;">${escapeHtml(message)}</div>`;
+  }
+
+  return `
+    <div style="text-align:left;line-height:1.7;">
+      <div style="margin-bottom:10px;">${escapeHtml(message)}</div>
+      <div style="font-weight:800;margin-bottom:8px;">Failed email recipients:</div>
+      <ul style="padding-left:20px;margin:0;">
+        ${failedRecipients
+          .map(
+            (item) => `
+              <li style="margin-bottom:8px;">
+                <strong>${escapeHtml(item.recipient || "recipient")}</strong>
+                ${item.email ? `(${escapeHtml(item.email)})` : ""}:
+                ${escapeHtml(item.reason || "Unknown error")}
+              </li>
+            `
+          )
+          .join("")}
+      </ul>
+    </div>
+  `;
+};
+
+const showCheckoutLoader = (title, text) => {
+  Swal.fire({
+    title,
+    text,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.showLoading();
+    },
+  });
+};
+
+const closeCheckoutLoader = () => {
+  Swal.close();
+};
+
+const showCheckoutError = async ({ title, message, data }) => {
+  await Swal.fire({
+    icon: "error",
+    title,
+    html: buildFailureHtml(message, data),
+    confirmButtonColor: "#0f172a",
+    width: 620,
+  });
+};
+
 const StripeSubmitHandler = ({
   beforeConfirm,
   onSuccess,
@@ -57,8 +123,16 @@ const StripeSubmitHandler = ({
     try {
       setProcessing(true);
 
+      showCheckoutLoader(
+        "Processing your order...",
+        "Please wait while we confirm payment, save the order, and deliver confirmation emails."
+      );
+
       const canProceed = await beforeConfirm();
-      if (!canProceed) return;
+      if (!canProceed) {
+        closeCheckoutLoader();
+        return;
+      }
 
       if (!stripe || !elements) {
         throw new Error("Stripe is still loading");
@@ -93,9 +167,18 @@ const StripeSubmitHandler = ({
 
       await onSuccess(paymentIntent.id);
     } catch (error) {
-      toast.error(
-        error?.message || "Something went wrong while processing payment"
-      );
+      closeCheckoutLoader();
+
+      if (!error?.__handled) {
+        await showCheckoutError({
+          title: "Checkout failed",
+          message:
+            error?.message ||
+            "Something went wrong while processing payment.",
+          data: error?.response?.data,
+        });
+      }
+
       if (typeof onFailure === "function") {
         onFailure(error);
       }
@@ -323,9 +406,8 @@ const CheckoutInner = ({
 
       return true;
     } catch (error) {
-      toast.error(error?.message || "Failed to validate checkout");
       setPlacingOrder(false);
-      return false;
+      throw error;
     }
   };
 
@@ -350,21 +432,42 @@ const CheckoutInner = ({
   };
 
   const finalizeOrder = async (stripePaymentIntentId = "") => {
-    const payload = buildOrderPayload(stripePaymentIntentId);
-    const result = await orderService.createOrder(payload);
+    try {
+      const payload = buildOrderPayload(stripePaymentIntentId);
+      const result = await orderService.createOrder(payload);
 
-    dispatch(replaceCart([]));
+      closeCheckoutLoader();
+      dispatch(replaceCart([]));
 
-    navigate("/order-success", {
-      state: {
-        orderNumber: result?.data?.order_number || "",
-        total: result?.data?.total || 0,
-        paymentStatus: result?.data?.payment_status || "pending",
-      },
-      replace: true,
-    });
+      navigate("/order-success", {
+        state: {
+          orderNumber: result?.data?.order_number || "",
+          total: result?.data?.total || 0,
+          paymentStatus: result?.data?.payment_status || "pending",
+        },
+        replace: true,
+      });
 
-    return result;
+      return result;
+    } catch (error) {
+      closeCheckoutLoader();
+      setErrors(mapBackendErrors(error?.response?.errors));
+      error.__handled = true;
+
+      const alreadyPlaced = error?.response?.data?.order_already_placed;
+
+      await showCheckoutError({
+        title: alreadyPlaced
+          ? "Order placed, but email delivery is pending"
+          : "Failed to place order",
+        message:
+          error?.message ||
+          "Something went wrong while finalizing your order.",
+        data: error?.response?.data,
+      });
+
+      throw error;
+    }
   };
 
   const handleCodOrder = async () => {
@@ -376,13 +479,27 @@ const CheckoutInner = ({
     try {
       setPlacingOrder(true);
 
+      showCheckoutLoader(
+        "Placing your order...",
+        "Please wait while we save the order and deliver confirmation emails."
+      );
+
       const syncResult = await syncCartWithLatestStock();
-      if (!syncResult.valid) return;
+      if (!syncResult.valid) {
+        closeCheckoutLoader();
+        return;
+      }
 
       await finalizeOrder("");
     } catch (error) {
-      setErrors(mapBackendErrors(error?.response?.errors));
-      toast.error(error?.message || "Failed to place order");
+      if (!error?.__handled) {
+        closeCheckoutLoader();
+        await showCheckoutError({
+          title: "Checkout failed",
+          message: error?.message || "Failed to place order",
+          data: error?.response?.data,
+        });
+      }
     } finally {
       setPlacingOrder(false);
     }
@@ -392,9 +509,8 @@ const CheckoutInner = ({
     try {
       await finalizeOrder(stripePaymentIntentId);
     } catch (error) {
-      setErrors(mapBackendErrors(error?.response?.errors));
-      toast.error(error?.message || "Failed to place order");
       setPlacingOrder(false);
+      throw error;
     }
   };
 
@@ -761,7 +877,10 @@ const CheckoutInner = ({
 
                 <div className="premium-checkout-note">
                   <i className="fa fa-lock"></i>
-                  <span>Your personal data is protected with secure checkout.</span>
+                  <span>
+                    Your personal data is protected with secure checkout and
+                    premium order confirmation emails.
+                  </span>
                 </div>
 
                 {formData.paymentMethod === "card" ? (

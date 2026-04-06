@@ -9,8 +9,9 @@ const ContactPageContent = React.lazy(() => import('./views/contact-page/Contact
 const CategoriesList = React.lazy(() => import("./views/categories/CategoriesList"),);
 const ProductsList = React.lazy(() => import("./views/products/ProductsList"));
 const OrdersList = React.lazy(() => import("./views/orders/OrdersList"));
-const ContactMessagesList = React.lazy(() => import('./views/contact-messages/ContactMessagesList'))
-const PaymentSettings = React.lazy(() => import('./views/payment-settings/PaymentSettings'))
+const ContactMessagesList = React.lazy(() => import('./views/contact-messages/ContactMessagesList'));
+const NewsletterSubscribersList = React.lazy(() => import("./views/newsletter/NewsletterSubscribersList"));
+const PaymentSettings = React.lazy(() => import('./views/payment-settings/PaymentSettings'));
 const ContentList = React.lazy(() => import("./views/content/ContentList"));
 const Settings = React.lazy(() => import("./views/settings/Settings"));
 
@@ -23,6 +24,7 @@ const routes = [
   { path: "/admin/products", name: "Products", element: ProductsList },
   { path: "/admin/orders", name: "Orders", element: OrdersList },
   { path: '/admin/contact-messages', name: 'Contact Messages', element: ContactMessagesList, },
+  { path: "/admin/newsletter-subscribers", name: "Newsletter Subscribers", element: NewsletterSubscribersList },
   { path: '/admin/payment-settings', name: 'Payment Settings', element: PaymentSettings },
   { path: "/admin/content", name: "Content", element: ContentList },
   { path: "/admin/settings", name: "Settings", element: Settings },

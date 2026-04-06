@@ -15,4 +15,5 @@ export const API_ENDPOINTS = {
   publicPaymentSettings: `${API_BASE_URL}/payment-settings/default`,
   createOrder: `${API_BASE_URL}/orders/create`,
   createStripePaymentIntent: `${API_BASE_URL}/stripe/create-payment-intent`,
+  newsletterSubscribe: `${API_BASE_URL}/newsletter/subscribe`,
 };

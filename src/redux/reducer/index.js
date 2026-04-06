@@ -13,6 +13,7 @@ import categoryReducer from '../../admin/store/slices/categorySlice'
 import productReducer from '../../admin/store/slices/productSlice'
 import ordersReducer from '../../admin/store/slices/orderSlice'
 import uiReducer from '../../admin/store/slices/uiSlice'
+import newsletterReducer from "../../admin/store/slices/newsletterSlice";
 
 const rootReducers = combineReducers({
   handleCart,
@@ -28,6 +29,7 @@ const rootReducers = combineReducers({
   products: productReducer,
   orders: ordersReducer,
   adminUi: uiReducer,
+  newsletter: newsletterReducer,
 })
 
 export default rootReducers
